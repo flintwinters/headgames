@@ -2,42 +2,47 @@
 
 ## Motivation
 
-Headgames exists to test the smallest credible form of direct analog EEG
-neurofeedback: scalp potential differences should become audible feedback with
-no sampled-data system in the feedback path.  Prefer an understandable,
-battery-powered experiment whose limitations are explicit over apparent
-precision or complexity that cannot yet be validated.
+Headgames tests the smallest credible form of direct analog EEG neurofeedback:
+scalp potential differences become audible feedback without sampling or DSP in
+the feedback loop. Optimize for a fast, understandable proof of concept using
+available parts. Expose limitations and latency/filtering tradeoffs rather than
+hiding them behind unnecessary complexity.
 
-## Architecture
+## Architecture and invariants
 
-The MVP is a three-electrode, single-supply analog signal chain.  An LM324N
-provides the virtual ground, AC-coupled differential acquisition, alpha-band
-gain/filtering, and an audible carrier.  A passive detector derives alpha
-amplitude and a diode modulates the carrier.  An LM386M drives the audio
-transducer.  Every conductive connection to the wearer remains inside the
-battery-powered enclosure.  The design documentation and the calculations in
-`manage.py` are jointly authoritative; calculated claims in the documentation
-must be represented by named circuit parameters in the verifier.
+`headgames.kicad_sch` is the sole authoritative schematic. The battery-powered
+MVP uses three electrodes (`MEAS`, `REF`, `BIAS`), an LM324N for buffered
+mid-supply reference, AC-coupled differential acquisition, alpha-band gain,
+and envelope-controlled audible oscillation, plus an LM386 for speaker output.
+A passive detector converts filtered alpha amplitude into `ENV`; `ENV` is not
+shorted to `VREF`—R12/C9 return it to VREF, D1 drives it, and it controls U1D
+through R16.
 
-The LM324 front end is deliberately an inventory-first compromise, not a
-precision instrumentation amplifier.  Its documented replacement boundary is
-the electrode-input/differential block; later buffers or an instrumentation
-amplifier must preserve the downstream signal reference and alpha-filter
-interface.
+The analog feedback path must remain entirely analog. Future digital logging
+must be electrically safe and outside that path. The LM324 input is an
+inventory-first compromise, not precision EEG instrumentation; preserve a
+clear replacement boundary for electrode-side buffers or an instrumentation
+amplifier.
+
+Anything conductively connected to electrodes must be battery powered while
+worn. Remove grounded scopes, bench supplies, USB, chargers, powered audio, and
+other mains-connected equipment before attaching electrodes. This prototype is
+not a medical device.
 
 ## Current big tasks
 
-- Establish and bench-validate the LM324N/LM386M alpha-sonification MVP without
-  a person connected.
-- Validate battery-only physiological acquisition, beginning with artifacts
-  and proceeding to the eyes-open/eyes-closed alpha comparison.
-- Record observed limitations before choosing whether electrode buffers or a
-  proper instrumentation amplifier are the next justified refinement.
+- Bench-validate power, VREF, carrier/audio, differential response, filtering,
+  and envelope behavior with no person connected.
+- Validate battery-only physiological pickup: artifacts first, then repeated
+  eyes-open/eyes-closed alpha trials.
+- Record observed limitations before adding input buffers, an instrumentation
+  amplifier, sharper filters, or independent digital logging.
 
 ## Working method
 
-Use the root `manage.py` Typer application as the obvious entry point for all
-repeatable calculations and checks.  Add durable checks there rather than
-using ad-hoc test snippets.  Commit each verified logical checkpoint with a
-detailed message.  Keep safety boundaries conspicuous in both schematics and
-procedures.
+Use installed KiCad library symbols and validate the native schematic with
+`kicad-cli`. Preserve user layout changes and avoid parallel schematic sources.
+Use the root Typer/Rich `manage.py` entrypoint for durable automated checks; do
+not add ad-hoc test scripts. Reuse existing modules, keep safety annotations
+conspicuous, and commit each verified logical checkpoint with a detailed
+message.
