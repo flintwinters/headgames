@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <style>
+    text { font-family: DejaVu Sans, sans-serif; fill: #111; }
+    .title { font-size: 28px; font-weight: bold; }
+    .head { font-size: 20px; font-weight: bold; }
+    .body { font-size: 16px; }
+    .small { font-size: 13px; }
+    .wire { stroke: #087f23; stroke-width: 3; fill: none; }
+    .part { stroke: #111; stroke-width: 2; fill: white; }
+    .danger { fill: #fff1f0; stroke: #c62828; stroke-width: 3; }
+    .note { fill: #f3f7ff; stroke: #345995; stroke-width: 2; }
+    .node { fill: #087f23; }
+  </style>
+
+  <rect width="1400" height="900" fill="white"/>
+  <text x="40" y="45" class="title">HEADGAMES — BUILD NOW: battery reference + audible carrier checkpoint</text>
+  <rect x="40" y="65" width="1320" height="62" rx="8" class="danger"/>
+  <text x="60" y="91" class="head">NO ELECTRODES ON THIS CHECKPOINT.</text>
+  <text x="60" y="116" class="body">Battery power only. This sheet proves the LM324 and LM386 audio path before any body-connected circuitry is built.</text>
+
+  <!-- supply -->
+  <text x="45" y="175" class="head">1. SUPPLY AND 4.5 V REFERENCE</text>
+  <rect x="55" y="220" width="105" height="75" class="part"/>
+  <text x="78" y="250" class="body">6×AA</text><text x="72" y="275" class="body">BATTERY</text>
+  <line x1="160" y1="235" x2="220" y2="235" class="wire"/>
+  <rect x="220" y="220" width="75" height="30" class="part"/>
+  <text x="229" y="242" class="small">SW1</text>
+  <line x1="295" y1="235" x2="370" y2="235" class="wire"/>
+  <text x="310" y="220" class="body">BAT+ (≈9 V)</text>
+  <line x1="105" y1="295" x2="105" y2="350" class="wire"/>
+  <line x1="75" y1="350" x2="135" y2="350" class="wire"/><line x1="85" y1="360" x2="125" y2="360" class="wire"/><line x1="95" y1="370" x2="115" y2="370" class="wire"/>
+  <text x="52" y="392" class="body">GND</text>
+
+  <line x1="370" y1="235" x2="370" y2="270" class="wire"/>
+  <rect x="345" y="270" width="50" height="70" class="part"/>
+  <text x="350" y="300" class="body">R1</text><text x="350" y="323" class="body">47k</text>
+  <line x1="370" y1="340" x2="370" y2="390" class="wire"/>
+  <circle cx="370" cy="365" r="6" class="node"/>
+  <rect x="345" y="390" width="50" height="70" class="part"/>
+  <text x="350" y="420" class="body">R2</text><text x="350" y="443" class="body">47k</text>
+  <line x1="370" y1="460" x2="370" y2="495" class="wire"/>
+  <text x="345" y="520" class="body">GND</text>
+
+  <polygon points="475,320 475,420 585,370" class="part"/>
+  <text x="495" y="360" class="body">U1A</text><text x="493" y="385" class="small">LM324</text>
+  <text x="450" y="350" class="body">3 +</text><text x="450" y="402" class="body">2 −</text><text x="590" y="375" class="body">1</text>
+  <line x1="370" y1="365" x2="475" y2="345" class="wire"/>
+  <line x1="585" y1="370" x2="655" y2="370" class="wire"/>
+  <line x1="630" y1="370" x2="630" y2="445" class="wire"/>
+  <line x1="630" y1="445" x2="445" y2="445" class="wire"/><line x1="445" y1="445" x2="445" y2="395" class="wire"/><line x1="445" y1="395" x2="475" y2="395" class="wire"/>
+  <text x="615" y="355" class="head">VREF = 4.5 V</text>
+  <line x1="655" y1="370" x2="655" y2="405" class="wire"/>
+  <rect x="630" y="405" width="50" height="70" class="part"/>
+  <text x="635" y="435" class="body">C1</text><text x="635" y="458" class="body">47µ</text>
+  <line x1="655" y1="475" x2="655" y2="495" class="wire"/><text x="632" y="520" class="body">GND</text>
+
+  <rect x="735" y="220" width="260" height="115" class="note"/>
+  <text x="750" y="247" class="head">LM324 power</text>
+  <text x="750" y="275" class="body">pin 4 → BAT+</text><text x="750" y="300" class="body">pin 11 → GND</text>
+  <text x="750" y="325" class="small">C2 100 nF directly from pins 4 to 11</text>
+
+  <!-- oscillator -->
+  <text x="45" y="575" class="head">2. AUDIBLE CARRIER — ENV IS TEMPORARILY TIED TO VREF</text>
+  <polygon points="500,635 500,755 625,695" class="part"/>
+  <text x="525" y="687" class="body">U1D</text><text x="518" y="712" class="small">LM324</text>
+  <text x="465" y="662" class="body">12 +</text><text x="465" y="735" class="body">13 −</text><text x="630" y="701" class="body">14</text>
+  <line x1="625" y1="695" x2="750" y2="695" class="wire"/><text x="660" y="680" class="head">CARRIER</text>
+  <rect x="660" y="735" width="65" height="35" class="part"/><text x="670" y="758" class="body">R13 100k</text>
+  <line x1="690" y1="695" x2="690" y2="735" class="wire"/><line x1="660" y1="752" x2="590" y2="752" class="wire"/><line x1="590" y1="752" x2="590" y2="725" class="wire"/><line x1="590" y1="725" x2="500" y2="725" class="wire"/>
+  <line x1="455" y1="725" x2="455" y2="785" class="wire"/><rect x="430" y="785" width="50" height="50" class="part"/><text x="434" y="808" class="body">C10</text><text x="438" y="828" class="body">10n</text><text x="430" y="858" class="body">to VREF</text><line x1="455" y1="725" x2="500" y2="725" class="wire"/>
+  <line x1="500" y1="655" x2="425" y2="655" class="wire"/><circle cx="425" cy="655" r="6" class="node"/>
+  <rect x="335" y="600" width="65" height="32" class="part"/><text x="341" y="622" class="small">R14 220k</text><line x1="400" y1="616" x2="425" y2="655" class="wire"/><line x1="335" y1="616" x2="300" y2="616" class="wire"/><line x1="300" y1="616" x2="300" y2="695" class="wire"/><line x1="300" y1="695" x2="625" y2="695" class="wire"/>
+  <rect x="335" y="648" width="65" height="32" class="part"/><text x="341" y="670" class="small">R15 220k</text><line x1="400" y1="664" x2="425" y2="655" class="wire"/><line x1="335" y1="664" x2="250" y2="664" class="wire"/><text x="175" y="670" class="body">VREF</text>
+  <rect x="335" y="696" width="65" height="32" class="part"/><text x="341" y="718" class="small">R16 220k</text><line x1="400" y1="712" x2="425" y2="655" class="wire"/><line x1="335" y1="712" x2="250" y2="712" class="wire"/><text x="137" y="718" class="body">ENV = VREF</text>
+
+  <!-- audio -->
+  <text x="800" y="575" class="head">3. LM386 SPEAKER OUTPUT</text>
+  <line x1="750" y1="695" x2="785" y2="695" class="wire"/><rect x="785" y="675" width="70" height="40" class="part"/><text x="797" y="700" class="body">C11 100n</text>
+  <line x1="855" y1="695" x2="890" y2="695" class="wire"/><rect x="890" y="635" width="70" height="120" class="part"/><text x="902" y="675" class="body">VR1</text><text x="900" y="700" class="body">10k</text><text x="897" y="725" class="small">VOLUME</text><text x="885" y="625" class="small">top</text><text x="880" y="775" class="small">bottom→GND</text>
+  <line x1="960" y1="695" x2="1010" y2="695" class="wire"/><text x="965" y="680" class="small">wiper</text>
+  <rect x="1010" y="625" width="145" height="145" class="part"/><text x="1040" y="690" class="head">U2 LM386</text>
+  <text x="1018" y="720" class="body">3 (+) input</text><text x="1018" y="745" class="body">2,4 → GND</text><text x="1018" y="665" class="body">6 → BAT+</text>
+  <text x="1020" y="790" class="small">pins 1,8 open; pin 7 → C12 10µ → GND</text>
+  <line x1="1155" y1="695" x2="1190" y2="695" class="wire"/><text x="1158" y="680" class="body">5</text><rect x="1190" y="675" width="70" height="40" class="part"/><text x="1200" y="700" class="body">C15 220µ</text><line x1="1260" y1="695" x2="1300" y2="695" class="wire"/>
+  <circle cx="1320" cy="695" r="28" class="part"/><text x="1304" y="702" class="body">8Ω</text><line x1="1348" y1="695" x2="1365" y2="695" class="wire"/><line x1="1365" y1="695" x2="1365" y2="760" class="wire"/><text x="1335" y="785" class="body">GND</text>
+
+  <rect x="800" y="825" width="560" height="48" class="note"/>
+  <text x="815" y="846" class="small">LM386 supply bypass: C13 100 nF + C14 100 µF from pin 6 to pin 4/GND.</text>
+  <text x="815" y="866" class="small">Expected result: steady ≈721 Hz tone. Start VR1 fully down. No electrodes.</text>
+</svg>
