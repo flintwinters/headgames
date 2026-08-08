@@ -1,6 +1,7 @@
 # Headgames
 
-Open `headgames.sch` in KiCad. It contains the complete battery-powered MVP:
+Open `headgames.kicad_sch` in KiCad. It is the sole authoritative schematic and
+contains the complete battery-powered MVP:
 the three-electrode header and passive bias, matched AC-coupled LM324
 difference amplifier, alpha-band gain/filter, passive envelope detector,
 envelope-controlled carrier, and LM386 speaker amplifier.
