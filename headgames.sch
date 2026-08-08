@@ -1,6 +1,7 @@
 EESchema Schematic File Version 4
 LIBS:Amplifier_Audio
 LIBS:Amplifier_Operational
+LIBS:Connector_Generic
 LIBS:Device
 LIBS:Switch
 LIBS:power
@@ -20,6 +21,29 @@ Comment4 "Experimental prototype - not a medical device"
 $EndDescr
 Text Notes 700 750 0 100 ~ 0
 BUILD THIS CHECKPOINT FIRST: BATTERY + VREF + CARRIER + SPEAKER. DO NOT CONNECT ELECTRODES.
+$Comp
+L Connector_Generic:Conn_01x03 J1
+U 1 1 1000001A
+P 1800 5000
+F 0 "J1" H 1880 5042 50 0000 L CNN
+F 1 "ELECTRODES" H 1880 4951 50 0000 L CNN
+	1    1800 5000
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	1600 4900 1250 4900
+Wire Wire Line
+	1600 5000 1250 5000
+Wire Wire Line
+	1600 5100 1250 5100
+Text Label 1250 4900 0 50 ~ 0
+MEAS
+Text Label 1250 5000 0 50 ~ 0
+REF
+Text Label 1250 5100 0 50 ~ 0
+BIAS
+Text Notes 1250 5400 0 50 ~ 0
+RESERVED: electrode acquisition stage not connected in this checkpoint
 Wire Wire Line
 	1100 1500 10000 1500
 Text Label 1250 1500 0 50 ~ 0
