@@ -1,0 +1,398 @@
+EESchema Schematic File Version 4
+LIBS:Amplifier_Audio
+LIBS:Amplifier_Operational
+LIBS:Device
+LIBS:Switch
+LIBS:power
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title "Headgames - safe audio checkpoint"
+Date "2026-08-08"
+Rev "A"
+Comp "Headgames"
+Comment1 "BATTERY ONLY - NO ELECTRODES ON THIS CHECKPOINT"
+Comment2 "LM324 reference and carrier into LM386 speaker amplifier"
+Comment3 "Pins 1 and 8 of LM386 intentionally open for gain 20"
+Comment4 "Experimental prototype - not a medical device"
+$EndDescr
+Text Notes 700 750 0 100 ~ 0
+BUILD THIS CHECKPOINT FIRST: BATTERY + VREF + CARRIER + SPEAKER. DO NOT CONNECT ELECTRODES.
+$Comp
+L Device:Battery BT1
+U 1 1 10000001
+P 1100 3000
+F 0 "BT1" H 1208 3046 50 0000 L CNN
+F 1 "6xAA (9V)" H 1208 2955 50 0000 L CNN
+	1    1100 3000
+	1 0 0 -1
+$EndComp
+$Comp
+L Switch:SW_SPST SW1
+U 1 1 10000002
+P 1100 2200
+F 0 "SW1" V 1146 2112 50 0000 R CNN
+F 1 "POWER" V 1055 2112 50 0000 R CNN
+	1    1100 2200
+	0 -1 -1 0
+$EndComp
+Wire Wire Line
+	1100 2400 1100 2850
+Wire Wire Line
+	1100 2000 1100 1500
+Wire Wire Line
+	1100 1500 10000 1500
+Text Label 1250 1500 0 50 ~ 0
+BAT+
+Wire Wire Line
+	1100 3150 1100 6500
+Wire Wire Line
+	1100 6500 11000 6500
+$Comp
+L power:GND #PWR0101
+U 1 1 10000003
+P 1100 6500
+F 0 "#PWR0101" H 1100 6250 50 0001 C CNN
+F 1 "GND" H 1105 6327 50 0000 C CNN
+	1    1100 6500
+	1 0 0 -1
+$EndComp
+$Comp
+L Device:R R1
+U 1 1 10000004
+P 2100 2250
+F 0 "R1" H 2170 2296 50 0000 L CNN
+F 1 "47k" H 2170 2205 50 0000 L CNN
+	1    2100 2250
+	1 0 0 -1
+$EndComp
+$Comp
+L Device:R R2
+U 1 1 10000005
+P 2100 3750
+F 0 "R2" H 2170 3796 50 0000 L CNN
+F 1 "47k" H 2170 3705 50 0000 L CNN
+	1    2100 3750
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	2100 2100 2100 1500
+Wire Wire Line
+	2100 1500 1100 1500
+Connection ~ 1100 1500
+Wire Wire Line
+	2100 2400 2100 2900
+Wire Wire Line
+	2100 2900 3200 2900
+Wire Wire Line
+	2100 2900 2100 3600
+Connection ~ 2100 2900
+Wire Wire Line
+	2100 3900 2100 6500
+Wire Wire Line
+	2100 6500 1100 6500
+Connection ~ 1100 6500
+$Comp
+L Amplifier_Operational:LM324 U1
+U 1 1 10000006
+P 3500 3000
+F 0 "U1" H 3500 3367 50 0000 C CNN
+F 1 "LM324N" H 3500 3276 50 0000 C CNN
+	1    3500 3000
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	3200 3100 3000 3100
+Wire Wire Line
+	3000 3100 3000 3400
+Wire Wire Line
+	3000 3400 4000 3400
+Wire Wire Line
+	4000 3400 4000 3000
+Wire Wire Line
+	3800 3000 4000 3000
+Wire Wire Line
+	4000 3000 5000 3000
+Connection ~ 4000 3000
+Text Label 4200 3000 0 50 ~ 0
+VREF
+$Comp
+L Device:C_Polarized C1
+U 1 1 10000007
+P 4400 3750
+F 0 "C1" H 4518 3796 50 0000 L CNN
+F 1 "47u" H 4518 3705 50 0000 L CNN
+	1    4400 3750
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	4400 3600 4400 3000
+Connection ~ 4400 3000
+Wire Wire Line
+	4400 3900 4400 6500
+$Comp
+L Amplifier_Operational:LM324 U1
+U 4 1 10000008
+P 6500 4500
+F 0 "U1" H 6500 4867 50 0000 C CNN
+F 1 "LM324N" H 6500 4776 50 0000 C CNN
+	4    6500 4500
+	1 0 0 -1
+$EndComp
+$Comp
+L Device:R R14
+U 1 1 10000009
+P 5700 3900
+F 0 "R14" V 5493 3900 50 0000 C CNN
+F 1 "220k" V 5584 3900 50 0000 C CNN
+	1    5700 3900
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	5850 3900 7000 3900
+Wire Wire Line
+	7000 3900 7000 4500
+Wire Wire Line
+	6800 4500 7000 4500
+Wire Wire Line
+	5550 3900 5350 3900
+Wire Wire Line
+	5350 3900 5350 4400
+Wire Wire Line
+	5350 4400 6200 4400
+$Comp
+L Device:R R15
+U 1 1 1000000A
+P 5700 4200
+F 0 "R15" V 5493 4200 50 0000 C CNN
+F 1 "220k" V 5584 4200 50 0000 C CNN
+	1    5700 4200
+	0 1 1 0
+$EndComp
+$Comp
+L Device:R R16
+U 1 1 1000000B
+P 5700 4750
+F 0 "R16" V 5493 4750 50 0000 C CNN
+F 1 "220k" V 5584 4750 50 0000 C CNN
+	1    5700 4750
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	5550 4200 5000 4200
+Wire Wire Line
+	5000 3000 5000 4750
+Wire Wire Line
+	5000 4750 5550 4750
+Wire Wire Line
+	5850 4200 6000 4200
+Wire Wire Line
+	6000 4200 6000 4400
+Wire Wire Line
+	6000 4400 6200 4400
+Connection ~ 6000 4400
+Wire Wire Line
+	5850 4750 6000 4750
+Wire Wire Line
+	6000 4750 6000 4400
+Text Notes 5000 4950 0 50 ~ 0
+ENV = VREF for this checkpoint
+$Comp
+L Device:R R13
+U 1 1 1000000C
+P 6500 5250
+F 0 "R13" V 6293 5250 50 0000 C CNN
+F 1 "100k" V 6384 5250 50 0000 C CNN
+	1    6500 5250
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	6650 5250 7000 5250
+Wire Wire Line
+	7000 5250 7000 4500
+Connection ~ 7000 4500
+Wire Wire Line
+	6350 5250 6100 5250
+Wire Wire Line
+	6100 5250 6100 4600
+Wire Wire Line
+	6100 4600 6200 4600
+$Comp
+L Device:C C10
+U 1 1 1000000D
+P 5700 5500
+F 0 "C10" H 5815 5546 50 0000 L CNN
+F 1 "10n" H 5815 5455 50 0000 L CNN
+	1    5700 5500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	5700 5350 5700 5250
+Wire Wire Line
+	5700 5250 6100 5250
+Connection ~ 6100 5250
+Wire Wire Line
+	5700 5650 5700 3000
+Wire Wire Line
+	5700 3000 5000 3000
+Connection ~ 5000 3000
+Text Label 7050 4500 0 50 ~ 0
+CARRIER
+$Comp
+L Device:C C11
+U 1 1 1000000E
+P 7450 4500
+F 0 "C11" V 7198 4500 50 0000 C CNN
+F 1 "100n" V 7289 4500 50 0000 C CNN
+	1    7450 4500
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	7000 4500 7300 4500
+$Comp
+L Device:R R18
+U 1 1 1000000F
+P 8000 4500
+F 0 "R18" V 7793 4500 50 0000 C CNN
+F 1 "100k" V 7884 4500 50 0000 C CNN
+	1    8000 4500
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	7600 4500 7850 4500
+$Comp
+L Device:R R19
+U 1 1 10000018
+P 8500 5000
+F 0 "R19" H 8570 5046 50 0000 L CNN
+F 1 "10k" H 8570 4955 50 0000 L CNN
+	1    8500 5000
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	8150 4500 8500 4500
+Wire Wire Line
+	8500 4500 8500 4850
+Wire Wire Line
+	8500 5150 8500 6500
+$Comp
+L Amplifier_Audio:LM386 U2
+U 1 1 10000010
+P 9500 4500
+F 0 "U2" H 9844 4546 50 0000 L CNN
+F 1 "LM386" H 9844 4455 50 0000 L CNN
+	1    9500 4500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	8500 4500 9000 4500
+Wire Wire Line
+	9000 4500 9000 4400
+Wire Wire Line
+	9000 4400 9200 4400
+Wire Wire Line
+	9200 4600 8900 4600
+Wire Wire Line
+	8900 4600 8900 6500
+Wire Wire Line
+	9500 4200 9500 1500
+Wire Wire Line
+	9500 4800 9500 6500
+$Comp
+L Device:C_Polarized C12
+U 1 1 10000011
+P 10000 5000
+F 0 "C12" H 10118 5046 50 0000 L CNN
+F 1 "10u" H 10118 4955 50 0000 L CNN
+	1    10000 5000
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	9800 4700 10000 4700
+Wire Wire Line
+	10000 4700 10000 4850
+Wire Wire Line
+	10000 5150 10000 6500
+$Comp
+L Device:C_Polarized C15
+U 1 1 10000012
+P 10300 4500
+F 0 "C15" V 10555 4500 50 0000 C CNN
+F 1 "220u" V 10464 4500 50 0000 C CNN
+	1    10300 4500
+	0 -1 -1 0
+$EndComp
+Wire Wire Line
+	9800 4500 10150 4500
+$Comp
+L Device:Speaker LS1
+U 1 1 10000013
+P 11000 4600
+F 0 "LS1" H 11170 4596 50 0000 L CNN
+F 1 "8 ohm" H 11170 4505 50 0000 L CNN
+	1    11000 4600
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	10450 4500 10800 4500
+Wire Wire Line
+	10800 4700 10800 6500
+$Comp
+L Amplifier_Operational:LM324 U1
+U 5 1 10000014
+P 3500 5500
+F 0 "U1" H 3458 5546 50 0000 L CNN
+F 1 "LM324N" H 3458 5455 50 0000 L CNN
+	5    3500 5500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	3400 5200 3400 1500
+Wire Wire Line
+	3400 5800 3400 6500
+$Comp
+L Device:C C2
+U 1 1 10000015
+P 3900 5500
+F 0 "C2" H 4015 5546 50 0000 L CNN
+F 1 "100n" H 4015 5455 50 0000 L CNN
+	1    3900 5500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	3900 5350 3900 1500
+Wire Wire Line
+	3900 5650 3900 6500
+$Comp
+L Device:C C13
+U 1 1 10000016
+P 8500 2500
+F 0 "C13" H 8615 2546 50 0000 L CNN
+F 1 "100n" H 8615 2455 50 0000 L CNN
+	1    8500 2500
+	1 0 0 -1
+$EndComp
+$Comp
+L Device:C_Polarized C14
+U 1 1 10000017
+P 9000 2500
+F 0 "C14" H 9118 2546 50 0000 L CNN
+F 1 "100u" H 9118 2455 50 0000 L CNN
+	1    9000 2500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	8500 2350 8500 1500
+Wire Wire Line
+	9000 2350 9000 1500
+Wire Wire Line
+	8500 2650 8500 6500
+Wire Wire Line
+	9000 2650 9000 6500
+Text Notes 750 6900 0 60 ~ 0
+EXPECTED: VREF near 4.5 V and a steady approximately 721 Hz tone. Start VR1 fully down.
+Text Notes 750 7100 0 60 ~ 0
+Disconnect power before rewiring. No electrodes, grounded scope, USB, or mains-connected equipment on this checkpoint.
+$EndSCHEMATC
