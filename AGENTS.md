@@ -15,10 +15,11 @@ wired MVP uses a keyed 9 V isolated-battery input and three electrodes (`MEAS`,
 `REF`, `BIAS`), an inventory-first LM324N for buffered mid-supply reference, AC-coupled
 differential acquisition, 8.7-12.4 Hz alpha-band gain, and envelope-controlled
 audible oscillation, plus an LM386 for speaker output.
-A passive detector converts filtered alpha amplitude into `ENV`; `ENV` is not
-shorted to `VREF`—R12/C9 return it to VREF, D1 drives it, and it controls U1D
-through R16. D1 is specifically a 1N5711 zero-bias Schottky detector; do not
-silently substitute a generic power Schottky with different low-level behavior.
+An LM358N precision peak detector converts filtered alpha amplitude into
+`ENV`: U3A compensates the forward drop of D1 inside its feedback loop, R12/C9
+hold the raw envelope relative to VREF, and U3B buffers that node before R16
+controls U1D. D1 remains specifically a 1N5711 low-level Schottky; do not
+silently substitute a generic power Schottky with different behavior.
 
 The analog feedback path must remain entirely analog. Future digital logging
 must be electrically safe and outside that path. The LM324N is an

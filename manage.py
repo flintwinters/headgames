@@ -146,13 +146,40 @@ def assert_eeg_signal_path(values: dict[str, str]) -> None:
     assert 12.0 <= low_pass <= 13.0, f"alpha low-pass is {low_pass:.2f} Hz"
     assert high_pass < low_pass, "alpha passband corners must not overlap"
 
-    assert values["D1"].startswith("1N5711"), (
-        "detector must specify the characterized low-level Schottky part"
-    )
     detector_release = resistance(values["R12"]) * capacitance(values["C9"])
     assert math.isclose(detector_release, 0.22), (
         f"detector release time constant is {detector_release:.3f} s"
     )
+
+
+def assert_precision_detector(
+    nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
+) -> None:
+    """Require active diode compensation and a buffered envelope output."""
+    alpha_net = next(net for net in nets.values() if ("U1", "8") in net)
+    drive_net = next(net for net in nets.values() if ("U3", "1") in net)
+    raw_envelope_net = next(net for net in nets.values() if ("D1", "1") in net)
+    envelope_net = next(net for net in nets.values() if ("R16", "2") in net)
+    vcc_net = next(net for net in nets.values() if ("U3", "8") in net)
+    ground_net = next(net for net in nets.values() if ("U3", "4") in net)
+
+    assert values["U3"].startswith("LM358N"), (
+        "precision detector must use the inventory LM358N"
+    )
+    assert values["D1"].startswith("1N5711"), (
+        "detector must retain the characterized low-level Schottky part"
+    )
+    assert ("U3", "3") in alpha_net, "U3A non-inverting input must sense ALPHA"
+    assert ("D1", "2") in drive_net, "D1 anode must be driven inside U3A feedback"
+    assert {("U3", "2"), ("U3", "5"), ("R12", "1"), ("C9", "1")} <= (
+        raw_envelope_net
+    ), "U3A must sense the held envelope and U3B must buffer it"
+    assert {("U3", "6"), ("U3", "7"), ("R16", "2")} <= envelope_net, (
+        "U3B must be a voltage follower driving ENV"
+    )
+    assert ("C17", "1") in vcc_net, "U3 local decoupling must connect to VCC"
+    assert ("C17", "2") in ground_net, "U3 local decoupling must return to ground"
+    assert math.isclose(capacitance(values["C17"]), 100e-9)
 
 
 def assert_isolated_battery_input(
@@ -205,6 +232,7 @@ def test() -> None:
     assert_audio_drive_bounded(values)
     assert_audio_output_stabilized(nets, values)
     assert_eeg_signal_path(values)
+    assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_erc_clean()
     console.print("[green]Schematic connectivity checks passed.[/green]")

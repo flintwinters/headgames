@@ -3,8 +3,9 @@
 Open `headgames.kicad_sch` in KiCad. It is the sole authoritative schematic and
 contains the complete externally wired MVP:
 the three-electrode header and passive bias, matched AC-coupled LM324N
-difference amplifier, alpha-band gain/filter, passive envelope detector,
-envelope-controlled carrier, and LM386 speaker amplifier.
+difference amplifier, alpha-band gain/filter, LM358N precision peak detector
+with buffered envelope output, envelope-controlled carrier, and LM386 speaker
+amplifier.
 
 Power enters through keyed connector J2 from an isolated 9 V battery: pin 1 is
 positive, pin 3 is battery return, and pin 2 is deliberately unused as a key.
