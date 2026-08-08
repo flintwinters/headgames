@@ -128,8 +128,8 @@ def assert_audio_output_stabilized(
 
 def assert_eeg_signal_path(values: dict[str, str]) -> None:
     """Require matched acquisition and explicit alpha/detector behavior."""
-    assert values["U1"].startswith("TLC274CN"), (
-        "high-impedance EEG stages require the low-bias CMOS quad amplifier"
+    assert values["U1"].startswith("LM324N"), (
+        "the MVP must use the quad amplifier available in project inventory"
     )
     assert resistance(values["R4"]) == resistance(values["R8"])
     assert resistance(values["R6"]) == resistance(values["R9"])

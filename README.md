@@ -2,7 +2,7 @@
 
 Open `headgames.kicad_sch` in KiCad. It is the sole authoritative schematic and
 contains the complete externally wired MVP:
-the three-electrode header and passive bias, matched AC-coupled TLC274CN
+the three-electrode header and passive bias, matched AC-coupled LM324N
 difference amplifier, alpha-band gain/filter, passive envelope detector,
 envelope-controlled carrier, and LM386 speaker amplifier.
 

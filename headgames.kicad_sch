@@ -10,7 +10,7 @@
 		(rev "A")
 		(company "Headgames")
 		(comment 1 "BATTERY ONLY WHILE ELECTRODES ARE CONNECTED")
-		(comment 2 "TLC274CN reference, acquisition, alpha gain, and carrier")
+		(comment 2 "LM324N reference, acquisition, alpha gain, and carrier")
 		(comment 3 "Pins 1 and 8 of LM386 intentionally open for gain 20")
 		(comment 4 "Experimental prototype - not a medical device")
 	)
@@ -3812,7 +3812,7 @@
 				)
 			)
 		)
-		(property "Value" "TLC274CN LOW-BIAS CMOS"
+		(property "Value" "LM324N INVENTORY"
 			(at 88.9 69.1896 0)
 			(effects
 				(font
@@ -4042,7 +4042,7 @@
 				)
 			)
 		)
-		(property "Value" "TLC274CN LOW-BIAS CMOS"
+		(property "Value" "LM324N INVENTORY"
 			(at 165.1 84.4296 0)
 			(effects
 				(font
@@ -5006,7 +5006,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "TLC274CN LOW-BIAS CMOS"
+		(property "Value" "LM324N INVENTORY"
 			(at 45.9232 82.423 0)
 			(effects
 				(font
@@ -6073,7 +6073,7 @@
 				)
 			)
 		)
-		(property "Value" "TLC274CN LOW-BIAS CMOS"
+		(property "Value" "LM324N INVENTORY"
 			(at 161.29 141.5796 0)
 			(effects
 				(font
@@ -6559,7 +6559,7 @@
 				)
 			)
 		)
-		(property "Value" "TLC274CN LOW-BIAS CMOS"
+		(property "Value" "LM324N INVENTORY"
 			(at 232.41 139.0396 0)
 			(effects
 				(font
