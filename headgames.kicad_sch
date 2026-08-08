@@ -2043,6 +2043,15 @@
 		)
 		(uuid "f13dfbe4-c8c9-4ee7-ba61-712f80f556bc")
 	)
+	(text "R21/R22/R23: SECOND SERIES LIMITERS — BIAS 1M; MEAS/REF 100k"
+		(exclude_from_sim no)
+		(at 55.88 137.16 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "b4000000-0000-4000-8000-000000000001")
+	)
 	(junction
 		(at 231.14 107.95)
 		(diameter 0)
@@ -3758,7 +3767,7 @@
 		)
 		(uuid "a2000000-0000-4000-8000-000000000001")
 	)
-	(label "ENV_RAW"
+	(label "HOLD"
 		(at 252.73 187.96 0)
 		(effects
 			(font
@@ -3768,7 +3777,7 @@
 		)
 		(uuid "a2000000-0000-4000-8000-000000000002")
 	)
-	(label "RECTIFIER_DRIVE"
+	(label "DRV"
 		(at 267.97 185.42 0)
 		(effects
 			(font
@@ -3778,7 +3787,7 @@
 		)
 		(uuid "a2000000-0000-4000-8000-000000000003")
 	)
-	(label "RECTIFIER_DRIVE"
+	(label "DRV"
 		(at 261.62 146.05 0)
 		(effects
 			(font
@@ -3788,7 +3797,7 @@
 		)
 		(uuid "a2000000-0000-4000-8000-000000000004")
 	)
-	(label "ENV_RAW"
+	(label "HOLD"
 		(at 278.13 182.88 0)
 		(effects
 			(font
@@ -3928,7 +3937,7 @@
 		)
 		(uuid "d420574a-811a-4bed-b582-3626ddcad7ef")
 	)
-	(label "ENV_RAW"
+	(label "HOLD"
 		(at 283.21 146.05 180)
 		(effects
 			(font
@@ -6820,7 +6829,7 @@
 				)
 			)
 		)
-		(property "Value" "1N5711 ZERO-BIAS DETECTOR"
+		(property "Value" "1N5711 LOW-LEVEL"
 			(at 265.43 142.875 0)
 			(effects
 				(font
@@ -7562,8 +7571,8 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "b1000000-0000-4000-8000-000000000001")
-		(property "Reference" "R21" (at 62.23 140.7922 90) (effects (font (size 1.27 1.27))))
-		(property "Value" "1M BIAS SAFETY B" (at 62.23 143.1036 90) (effects (font (size 1.27 1.27))))
+		(property "Reference" "R21" (at 62.23 144.78 0) (effects (font (size 0.8 0.8))))
+		(property "Value" "1M BIAS SAFETY B" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Footprint" "" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Datasheet" "" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Description" "Independent electrode current-limiting resistor" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
@@ -7580,8 +7589,8 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "b1000000-0000-4000-8000-000000000002")
-		(property "Reference" "R22" (at 62.23 143.3322 90) (effects (font (size 1.27 1.27))))
-		(property "Value" "100k MEAS SAFETY B" (at 62.23 145.6436 90) (effects (font (size 1.27 1.27))))
+		(property "Reference" "R22" (at 62.23 147.32 0) (effects (font (size 0.8 0.8))))
+		(property "Value" "100k MEAS SAFETY B" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Footprint" "" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Datasheet" "" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Description" "Independent electrode current-limiting resistor" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
@@ -7598,8 +7607,8 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "b1000000-0000-4000-8000-000000000003")
-		(property "Reference" "R23" (at 62.23 145.8722 90) (effects (font (size 1.27 1.27))))
-		(property "Value" "100k REF SAFETY B" (at 62.23 148.18359999999998 90) (effects (font (size 1.27 1.27))))
+		(property "Reference" "R23" (at 62.23 149.86 0) (effects (font (size 0.8 0.8))))
+		(property "Value" "100k REF SAFETY B" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Footprint" "" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Datasheet" "" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Description" "Independent electrode current-limiting resistor" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
