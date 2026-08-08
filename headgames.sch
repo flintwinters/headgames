@@ -198,7 +198,7 @@ Wire Wire Line
 Wire Wire Line
 	6000 4750 6000 4400
 Text Notes 5000 4950 0 50 ~ 0
-ENV is referenced to VREF and driven by the envelope detector
+DO NOT wire ENV directly to VREF: R12 || C9 returns ENV to VREF; D1 drives ENV; ENV feeds R16
 $Comp
 L Device:R R13
 U 1 1 1000000C
