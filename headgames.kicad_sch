@@ -9,7 +9,7 @@
 		(date "2026-08-08")
 		(rev "A")
 		(company "Headgames")
-		(comment 1 "BATTERY ONLY WHILE ELECTRODES ARE CONNECTED")
+		(comment 1 "ISOLATED WIRED DC SUPPLY ONLY WHILE ELECTRODES ARE CONNECTED")
 		(comment 2 "LM324 reference and carrier into LM386 speaker amplifier")
 		(comment 3 "Pins 1 and 8 of LM386 intentionally open for gain 20")
 		(comment 4 "Experimental prototype - not a medical device")
@@ -1655,7 +1655,7 @@
 		)
 		(uuid "8b8ae3e5-ed15-4f4c-9a1d-8f0232096ba9")
 	)
-	(text "BODY-CONNECTED EXPERIMENT: BATTERY POWER ONLY. REMOVE GROUNDED TEST EQUIPMENT BEFORE ATTACHING ELECTRODES."
+	(text "BODY-CONNECTED EXPERIMENT: ISOLATED WIRED DC SUPPLY ONLY. REMOVE GROUNDED TEST EQUIPMENT BEFORE ATTACHING ELECTRODES."
 		(exclude_from_sim no)
 		(at 17.78 19.05 0)
 		(effects

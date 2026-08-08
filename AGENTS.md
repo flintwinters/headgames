@@ -10,8 +10,8 @@ hiding them behind unnecessary complexity.
 
 ## Architecture and invariants
 
-`headgames.kicad_sch` is the sole authoritative schematic. The battery-powered
-MVP uses three electrodes (`MEAS`, `REF`, `BIAS`), an LM324N for buffered
+`headgames.kicad_sch` is the sole authoritative schematic. The externally
+wired MVP uses three electrodes (`MEAS`, `REF`, `BIAS`), an LM324N for buffered
 mid-supply reference, AC-coupled differential acquisition, alpha-band gain,
 and envelope-controlled audible oscillation, plus an LM386 for speaker output.
 A passive detector converts filtered alpha amplitude into `ENV`; `ENV` is not
@@ -24,16 +24,17 @@ inventory-first compromise, not precision EEG instrumentation; preserve a
 clear replacement boundary for electrode-side buffers or an instrumentation
 amplifier.
 
-Anything conductively connected to electrodes must be battery powered while
-worn. Remove grounded scopes, bench supplies, USB, chargers, powered audio, and
-other mains-connected equipment before attaching electrodes. This prototype is
-not a medical device.
+Anything conductively connected to electrodes must use an isolated wired DC
+supply with no mains-earth or USB connection while worn. Remove grounded
+scopes, non-isolated bench supplies, USB, chargers, powered audio, and other
+mains-connected equipment before attaching electrodes. This prototype is not a
+medical device.
 
 ## Current big tasks
 
 - Bench-validate power, VREF, carrier/audio, differential response, filtering,
   and envelope behavior with no person connected.
-- Validate battery-only physiological pickup: artifacts first, then repeated
+- Validate isolated-supply physiological pickup: artifacts first, then repeated
   eyes-open/eyes-closed alpha trials.
 - Record observed limitations before adding input buffers, an instrumentation
   amplifier, sharper filters, or independent digital logging.
