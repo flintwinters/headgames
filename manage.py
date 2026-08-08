@@ -17,8 +17,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
 
 
-def schematic_nets() -> dict[str, set[tuple[str, str]]]:
-    """Return the native schematic's electrical nets as component-pin pairs."""
+def schematic_data() -> tuple[
+    dict[str, set[tuple[str, str]]], dict[str, str]
+]:
+    """Return the native schematic's electrical nets and component values."""
     netlist = PROJECT_ROOT / ".headgames-test-netlist.xml"
     try:
         subprocess.run(
@@ -38,13 +40,18 @@ def schematic_nets() -> dict[str, set[tuple[str, str]]]:
             text=True,
         )
         root = ElementTree.parse(netlist).getroot()
-        return {
+        nets = {
             net.attrib["name"]: {
                 (node.attrib["ref"], node.attrib["pin"])
                 for node in net.findall("node")
             }
             for net in root.findall("./nets/net")
         }
+        values = {
+            component.attrib["ref"]: component.findtext("value", default="")
+            for component in root.findall("./components/comp")
+        }
+        return nets, values
     finally:
         netlist.unlink(missing_ok=True)
 
@@ -72,6 +79,30 @@ def assert_vref_capacitor_isolated(nets: dict[str, set[tuple[str, str]]]) -> Non
     assert ("U1", "1") not in vref_net, "C1 must not directly load the U1A output"
 
 
+def resistance(value: str) -> float:
+    """Parse the leading compact resistor value used in schematic fields."""
+    token = value.split()[0]
+    multipliers = {"k": 1_000.0, "M": 1_000_000.0}
+    if token[-1] in multipliers:
+        return float(token[:-1]) * multipliers[token[-1]]
+    return float(token)
+
+
+def assert_audio_drive_bounded(values: dict[str, str]) -> None:
+    """Bound ideal LM386 output swing relative to carrier swing."""
+    lm386_input_resistance = 50_000.0
+    lm386_gain = 20.0
+    series = resistance(values["R18"])
+    shunt = resistance(values["R19"])
+    effective_shunt = 1 / (1 / shunt + 1 / lm386_input_resistance)
+    carrier_to_output = lm386_gain * effective_shunt / (series + effective_shunt)
+
+    assert carrier_to_output <= 0.2, (
+        "LM386 drive can demand excessive output swing: "
+        f"{carrier_to_output:.3f} V/V from carrier to speaker output"
+    )
+
+
 @app.callback()
 def main() -> None:
     """Calculate and verify the documented circuit design."""
@@ -80,9 +111,10 @@ def main() -> None:
 @app.command()
 def test() -> None:
     """Run the project's repeatable engineering checks."""
-    nets = schematic_nets()
+    nets, values = schematic_data()
     assert_audio_input_path(nets)
     assert_vref_capacitor_isolated(nets)
+    assert_audio_drive_bounded(values)
     console.print("[green]Schematic connectivity checks passed.[/green]")
 
 

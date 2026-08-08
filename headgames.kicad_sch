@@ -4402,7 +4402,7 @@
 				)
 			)
 		)
-		(property "Value" "100k"
+		(property "Value" "1M ATTEN"
 			(at 203.2 73.2536 90)
 			(effects
 				(font
