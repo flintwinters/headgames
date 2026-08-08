@@ -103,6 +103,21 @@ def assert_audio_drive_bounded(values: dict[str, str]) -> None:
     )
 
 
+def assert_audio_output_stabilized(
+    nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
+) -> None:
+    """Require the LM386 datasheet's series RC output stabilization branch."""
+    output_net = next(net for net in nets.values() if ("U2", "5") in net)
+    zobel_midpoint = next(net for net in nets.values() if ("C16", "2") in net)
+    ground_net = next(net for net in nets.values() if ("U2", "4") in net)
+
+    assert ("C16", "1") in output_net, "Zobel capacitor must start at U2 output"
+    assert ("R20", "1") in zobel_midpoint, "Zobel C16 and R20 must be in series"
+    assert ("R20", "2") in ground_net, "Zobel resistor must return to ground"
+    assert resistance(values["R20"]) == 10.0, "Zobel resistor must be 10 ohms"
+    assert values["C16"].split()[0] == "50n", "Zobel capacitor must be 50 nF"
+
+
 @app.callback()
 def main() -> None:
     """Calculate and verify the documented circuit design."""
@@ -115,6 +130,7 @@ def test() -> None:
     assert_audio_input_path(nets)
     assert_vref_capacitor_isolated(nets)
     assert_audio_drive_bounded(values)
+    assert_audio_output_stabilized(nets, values)
     console.print("[green]Schematic connectivity checks passed.[/green]")
 
 

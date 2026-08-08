@@ -2594,13 +2594,23 @@
 	)
 	(wire
 		(pts
-			(xy 248.92 78.74) (xy 257.81 78.74)
+			(xy 248.92 78.74) (xy 254 78.74)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "7aa84619-b9a1-4b76-a473-2a4e72ee29d3")
+	)
+	(wire
+		(pts
+			(xy 254 78.74) (xy 257.81 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "48752359-18a2-42af-868c-2ddfa1856f90")
 	)
 	(wire
 		(pts
@@ -2744,13 +2754,23 @@
 	)
 	(wire
 		(pts
-			(xy 274.32 107.95) (xy 238.76 107.95)
+			(xy 274.32 107.95) (xy 254 107.95)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "8e82f7b6-ca6b-4976-9d86-e0220137d216")
+	)
+	(wire
+		(pts
+			(xy 254 107.95) (xy 238.76 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "303cf0dc-58c6-4444-b007-b6f80c99c762")
 	)
 	(wire
 		(pts
@@ -3281,6 +3301,36 @@
 			(type default)
 		)
 		(uuid "f9068765-f0e8-4cfb-a30a-e5ae8678f3dd")
+	)
+	(wire
+		(pts
+			(xy 254 78.74) (xy 254 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6dd8095e-1981-4fbf-ae3c-8fd13b99c8cf")
+	)
+	(wire
+		(pts
+			(xy 254 95.25) (xy 254 99.06)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cf855170-1d71-44d1-8185-2312e44a5398")
+	)
+	(wire
+		(pts
+			(xy 254 106.68) (xy 254 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "47a32afd-6bd1-478a-9afa-76f00b690201")
 	)
 	(wire
 		(pts
@@ -4594,6 +4644,138 @@
 			(project "headgames"
 				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
 					(reference "C12")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:C")
+		(at 254 91.44 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a219fe2d-3d26-43e3-b120-4553c94396e2")
+		(property "Reference" "C16"
+			(at 256.921 90.2716 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "50n ZOBEL"
+			(at 256.921 92.583 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 254 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 254 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 254 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b850380d-6170-4d42-9a9e-cb7e7515aa91")
+		)
+		(pin "2"
+			(uuid "cc132c45-f72e-4694-8fd4-1b1ecf45d3df")
+		)
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "C16")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 254 102.87 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1d46226f-f3f3-4c1a-b2b3-6fc5276d1984")
+		(property "Reference" "R20"
+			(at 256.921 101.7016 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10 ZOBEL"
+			(at 256.921 104.013 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 254 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 254 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 254 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "68d8e48a-81e8-4839-a373-0e5f870f160c")
+		)
+		(pin "2"
+			(uuid "92f1a17d-2a59-43b1-8a03-8e7097ec43bf")
+		)
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "R20")
 					(unit 1)
 				)
 			)
