@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
@@ -88,6 +89,13 @@ def resistance(value: str) -> float:
     return float(token)
 
 
+def capacitance(value: str) -> float:
+    """Parse the leading compact capacitor value used in schematic fields."""
+    token = value.split()[0]
+    multipliers = {"p": 1e-12, "n": 1e-9, "u": 1e-6}
+    return float(token[:-1]) * multipliers[token[-1]]
+
+
 def assert_audio_drive_bounded(values: dict[str, str]) -> None:
     """Bound ideal LM386 output swing relative to carrier swing."""
     lm386_input_resistance = 50_000.0
@@ -116,6 +124,35 @@ def assert_audio_output_stabilized(
     assert ("R20", "2") in ground_net, "Zobel resistor must return to ground"
     assert resistance(values["R20"]) == 10.0, "Zobel resistor must be 10 ohms"
     assert values["C16"].split()[0] == "50n", "Zobel capacitor must be 50 nF"
+
+
+def assert_eeg_signal_path(values: dict[str, str]) -> None:
+    """Require matched acquisition and explicit alpha/detector behavior."""
+    assert values["U1"].startswith("TLC274CN"), (
+        "high-impedance EEG stages require the low-bias CMOS quad amplifier"
+    )
+    assert resistance(values["R4"]) == resistance(values["R8"])
+    assert resistance(values["R6"]) == resistance(values["R9"])
+    assert capacitance(values["C3"]) == capacitance(values["C4"])
+    assert capacitance(values["C5"]) == capacitance(values["C6"])
+
+    high_pass = 1 / (
+        2 * math.pi * resistance(values["R10"]) * capacitance(values["C7"])
+    )
+    low_pass = 1 / (
+        2 * math.pi * resistance(values["R11"]) * capacitance(values["C8"])
+    )
+    assert 8.0 <= high_pass <= 9.0, f"alpha high-pass is {high_pass:.2f} Hz"
+    assert 12.0 <= low_pass <= 13.0, f"alpha low-pass is {low_pass:.2f} Hz"
+    assert high_pass < low_pass, "alpha passband corners must not overlap"
+
+    assert values["D1"].startswith("1N5711"), (
+        "detector must specify the characterized low-level Schottky part"
+    )
+    detector_release = resistance(values["R12"]) * capacitance(values["C9"])
+    assert math.isclose(detector_release, 0.22), (
+        f"detector release time constant is {detector_release:.3f} s"
+    )
 
 
 def assert_isolated_battery_input(
@@ -167,6 +204,7 @@ def test() -> None:
     assert_vref_capacitor_isolated(nets)
     assert_audio_drive_bounded(values)
     assert_audio_output_stabilized(nets, values)
+    assert_eeg_signal_path(values)
     assert_isolated_battery_input(nets, values)
     assert_erc_clean()
     console.print("[green]Schematic connectivity checks passed.[/green]")

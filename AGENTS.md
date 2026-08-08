@@ -11,18 +11,23 @@ hiding them behind unnecessary complexity.
 ## Architecture and invariants
 
 `headgames.kicad_sch` is the sole authoritative schematic. The externally
-wired MVP uses three electrodes (`MEAS`, `REF`, `BIAS`), an LM324N for buffered
-mid-supply reference, AC-coupled differential acquisition, alpha-band gain,
-and envelope-controlled audible oscillation, plus an LM386 for speaker output.
+wired MVP uses a keyed 9 V isolated-battery input and three electrodes (`MEAS`,
+`REF`, `BIAS`), a TLC274CN for buffered mid-supply reference, AC-coupled
+differential acquisition, 8.7-12.4 Hz alpha-band gain, and envelope-controlled
+audible oscillation, plus an LM386 for speaker output.
 A passive detector converts filtered alpha amplitude into `ENV`; `ENV` is not
 shorted to `VREF`—R12/C9 return it to VREF, D1 drives it, and it controls U1D
-through R16.
+through R16. D1 is specifically a 1N5711 zero-bias Schottky detector; do not
+silently substitute a generic power Schottky with different low-level behavior.
 
 The analog feedback path must remain entirely analog. Future digital logging
-must be electrically safe and outside that path. The LM324 input is an
-inventory-first compromise, not precision EEG instrumentation; preserve a
-clear replacement boundary for electrode-side buffers or an instrumentation
-amplifier.
+must be electrically safe and outside that path. The TLC274CN's CMOS inputs
+avoid the LM324's large bias-current error across the 10 MΩ acquisition
+network, but it is still not precision EEG instrumentation; preserve a clear
+replacement boundary for electrode-side buffers or an instrumentation
+amplifier. An LM324 may be used only as an explicitly documented inventory
+fallback for early artifact tests, not as the authoritative physiological
+pickup configuration.
 
 Anything conductively connected to electrodes must use an isolated wired DC
 supply with no mains-earth or USB connection while worn. Remove grounded

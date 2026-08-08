@@ -10,7 +10,7 @@
 		(rev "A")
 		(company "Headgames")
 		(comment 1 "BATTERY ONLY WHILE ELECTRODES ARE CONNECTED")
-		(comment 2 "LM324 reference and carrier into LM386 speaker amplifier")
+		(comment 2 "TLC274CN reference, acquisition, alpha gain, and carrier")
 		(comment 3 "Pins 1 and 8 of LM386 intentionally open for gain 20")
 		(comment 4 "Experimental prototype - not a medical device")
 	)
@@ -1725,7 +1725,7 @@
 		)
 		(uuid "e4fde1cd-19a2-47d0-870e-d6088e6b8f7b")
 	)
-	(text "U1C 10.45 Hz ALPHA GAIN / BAND-PASS"
+	(text "U1C 8.7-12.4 Hz ALPHA BAND-PASS / GAIN"
 		(exclude_from_sim no)
 		(at 199.136 213.36 0)
 		(effects
@@ -3812,7 +3812,7 @@
 				)
 			)
 		)
-		(property "Value" "LM324N"
+		(property "Value" "TLC274CN LOW-BIAS CMOS"
 			(at 88.9 69.1896 0)
 			(effects
 				(font
@@ -4042,7 +4042,7 @@
 				)
 			)
 		)
-		(property "Value" "LM324N"
+		(property "Value" "TLC274CN LOW-BIAS CMOS"
 			(at 165.1 84.4296 0)
 			(effects
 				(font
@@ -5006,7 +5006,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "LM324N"
+		(property "Value" "TLC274CN LOW-BIAS CMOS"
 			(at 45.9232 82.423 0)
 			(effects
 				(font
@@ -6073,7 +6073,7 @@
 				)
 			)
 		)
-		(property "Value" "LM324N"
+		(property "Value" "TLC274CN LOW-BIAS CMOS"
 			(at 161.29 141.5796 0)
 			(effects
 				(font
@@ -6431,7 +6431,7 @@
 				)
 			)
 		)
-		(property "Value" "2.2u FILM/BIPOLAR"
+		(property "Value" "2.7u FILM/BIPOLAR"
 			(at 199.39 144.5006 90)
 			(effects
 				(font
@@ -6559,7 +6559,7 @@
 				)
 			)
 		)
-		(property "Value" "LM324N"
+		(property "Value" "TLC274CN LOW-BIAS CMOS"
 			(at 232.41 139.0396 0)
 			(effects
 				(font
@@ -6724,7 +6724,7 @@
 				)
 			)
 		)
-		(property "Value" "4.7n C0G"
+		(property "Value" "3.9n C0G"
 			(at 232.41 174.2694 90)
 			(effects
 				(font
@@ -6788,7 +6788,7 @@
 				)
 			)
 		)
-		(property "Value" "BAT54 / 1N5711"
+		(property "Value" "1N5711 ZERO-BIAS DETECTOR"
 			(at 265.43 142.875 0)
 			(effects
 				(font
