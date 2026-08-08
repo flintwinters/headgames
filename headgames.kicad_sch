@@ -1610,6 +1610,65 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:PWR_FLAG"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#FLG"
+				(at 0 1.905 0)
+				(effects
+					(font (size 1.27 1.27))
+					(hide yes)
+				)
+			)
+			(property "Value" "PWR_FLAG"
+				(at 0 3.81 0)
+				(effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "Description" "Special symbol for telling ERC where power comes from"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "ki_keywords" "flag power"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(symbol "PWR_FLAG_0_0"
+				(pin power_out line
+					(at 0 0 90)
+					(length 0)
+					(name "~" (effects (font (size 1.27 1.27))))
+					(number "1" (effects (font (size 1.27 1.27))))
+				)
+			)
+			(symbol "PWR_FLAG_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 1.27) (xy -1.016 1.905)
+						(xy 0 2.54) (xy 1.016 1.905) (xy 0 1.27)
+					)
+					(stroke (width 0) (type default))
+					(fill (type none))
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(text "PASSIVE PEAK DETECTOR: 0.22 s RELEASE TO VREF"
 		(exclude_from_sim no)
@@ -1622,7 +1681,7 @@
 		)
 		(uuid "1ccb737b-e1ab-4dde-a2fb-7838ac234077")
 	)
-	(text "EXPECTED: VREF near half the wired supply and a quiet, steady approximately 721 Hz tone."
+	(text "EXPECTED ON 9 V BATTERY: VREF near 4.5 V and a quiet, steady approximately 721 Hz tone."
 		(exclude_from_sim no)
 		(at 31.496 200.66 0)
 		(effects
@@ -1677,7 +1736,7 @@
 		)
 		(uuid "eee7eec1-d3d4-48d9-b09e-0245c197a2f5")
 	)
-	(text "Disconnect power before rewiring. Remove grounded scope, USB, and all mains-connected equipment before attaching electrodes."
+	(text "J2: PIN 1 = +9 V, PIN 3 = 0 V; PIN 2 IS A KEY. ISOLATED BATTERY ONLY WHILE WORN."
 		(exclude_from_sim no)
 		(at 31.496 205.74 0)
 		(effects
@@ -1941,6 +2000,24 @@
 	(no_connect
 		(at 243.84 86.36)
 		(uuid "6536ce7a-0c2c-46e2-bed5-da61343ec18b")
+	)
+	(no_connect
+		(at 35.56 100.33)
+		(uuid "b30249e5-196c-45ca-ae74-dd7e5cc1bd5e")
+	)
+	(wire
+		(pts
+			(xy 35.56 91.44) (xy 35.56 97.79)
+		)
+		(stroke (width 0) (type default))
+		(uuid "20d14c17-f3aa-4864-99bd-074836f64aed")
+	)
+	(wire
+		(pts
+			(xy 35.56 102.87) (xy 35.56 107.95)
+		)
+		(stroke (width 0) (type default))
+		(uuid "59dcbcd0-f914-4453-960a-d26957e2e151")
 	)
 	(wire
 		(pts
@@ -5335,6 +5412,125 @@
 			(project "headgames"
 				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
 					(reference "#PWR0102")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector_Generic:Conn_01x03")
+		(at 40.64 100.33 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "6f3588fd-c2d5-4210-ab83-957f21df84a5")
+		(property "Reference" "J2"
+			(at 42.672 99.2632 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Value" "9V ISOLATED BATTERY"
+			(at 42.672 101.5746 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Footprint" ""
+			(at 40.64 100.33 0)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Datasheet" ""
+			(at 40.64 100.33 0)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Description" "Keyed isolated battery input: pin 1 positive, pin 2 key, pin 3 zero volts"
+			(at 40.64 100.33 0)
+			(effects (font (size 1.27 1.27)))
+		)
+		(pin "1" (uuid "c8e16e7d-6694-42b9-bb9a-fd6fa20ec2ea"))
+		(pin "2" (uuid "8b2755fc-2ce3-4aeb-97ab-11ce6bd91112"))
+		(pin "3" (uuid "87b3519a-3d27-4678-a190-f0105fa62cb6"))
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 35.56 38.1 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "79ad771e-f6c9-4834-99e6-201d3a47b602")
+		(property "Reference" "#FLG0101"
+			(at 35.56 36.195 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Value" "PWR_FLAG"
+			(at 35.56 34.29 0)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Footprint" ""
+			(at 35.56 38.1 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Datasheet" "~"
+			(at 35.56 38.1 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Description" ""
+			(at 35.56 38.1 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(pin "1" (uuid "6ec37660-b799-4f1d-9c88-0d350bfde58a"))
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "#FLG0101")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 27.94 107.95 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4546f6b4-914c-490f-828c-9bbb31893a57")
+		(property "Reference" "#FLG0102"
+			(at 27.94 106.045 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Value" "PWR_FLAG"
+			(at 27.94 104.14 0)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Footprint" ""
+			(at 27.94 107.95 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Datasheet" "~"
+			(at 27.94 107.95 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Description" ""
+			(at 27.94 107.95 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(pin "1" (uuid "ef49abb0-bb9a-49da-974f-f65bbce3901c"))
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "#FLG0102")
 					(unit 1)
 				)
 			)

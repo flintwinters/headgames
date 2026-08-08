@@ -118,6 +118,42 @@ def assert_audio_output_stabilized(
     assert values["C16"].split()[0] == "50n", "Zobel capacitor must be 50 nF"
 
 
+def assert_isolated_battery_input(
+    nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
+) -> None:
+    """Require the keyed, explicitly rated battery-only power interface."""
+    vcc_net = next(net for net in nets.values() if ("U1", "4") in net)
+    ground_net = next(net for net in nets.values() if ("U1", "11") in net)
+    key_net = next(net for net in nets.values() if ("J2", "2") in net)
+
+    assert values["J2"] == "9V ISOLATED BATTERY"
+    assert ("J2", "1") in vcc_net, "J2 pin 1 must supply positive 9 V"
+    assert ("J2", "3") in ground_net, "J2 pin 3 must be battery return"
+    assert key_net == {("J2", "2")}, "J2 pin 2 must remain an unused key"
+
+
+def assert_erc_clean() -> None:
+    """Require KiCad's complete electrical-rules check to pass."""
+    report = PROJECT_ROOT / ".headgames-test-erc.rpt"
+    try:
+        subprocess.run(
+            [
+                "kicad-cli",
+                "sch",
+                "erc",
+                "--exit-code-violations",
+                "--output",
+                str(report),
+                str(SCHEMATIC),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        report.unlink(missing_ok=True)
+
+
 @app.callback()
 def main() -> None:
     """Calculate and verify the documented circuit design."""
@@ -131,6 +167,8 @@ def test() -> None:
     assert_vref_capacitor_isolated(nets)
     assert_audio_drive_bounded(values)
     assert_audio_output_stabilized(nets, values)
+    assert_isolated_battery_input(nets, values)
+    assert_erc_clean()
     console.print("[green]Schematic connectivity checks passed.[/green]")
 
 
