@@ -45,7 +45,7 @@ BIAS
 Wire Wire Line
 	1100 1500 10000 1500
 Text Label 1250 1500 0 50 ~ 0
-BAT+
+VCC
 Wire Wire Line
 	1100 6500 11000 6500
 $Comp
