@@ -1,9 +1,13 @@
 # Headgames
 
-Open `headgames.sch` in KiCad. It is the battery-powered LM324 virtual-ground
-and carrier oscillator feeding an LM386 speaker amplifier. It deliberately
-contains no electrode connection. Build and verify this checkpoint before
-adding the EEG acquisition path.
+Open `headgames.sch` in KiCad. It contains the complete battery-powered MVP:
+the three-electrode header and passive bias, matched AC-coupled LM324
+difference amplifier, alpha-band gain/filter, passive envelope detector,
+envelope-controlled carrier, and LM386 speaker amplifier.
+
+Anything connected to the electrode header must remain battery powered. Remove
+all grounded test equipment, USB connections, chargers, and mains-connected
+audio equipment before attaching electrodes.
 
 An immediately viewable PDF is generated as `build/BUILD_NOW.pdf` with:
 

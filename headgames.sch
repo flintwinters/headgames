@@ -7,20 +7,20 @@ LIBS:Switch
 LIBS:power
 EELAYER 30 0
 EELAYER END
-$Descr A4 11693 8268
+$Descr A3 16535 11693
 encoding utf-8
 Sheet 1 1
 Title "Headgames - safe audio checkpoint"
 Date "2026-08-08"
 Rev "A"
 Comp "Headgames"
-Comment1 "BATTERY ONLY - NO ELECTRODES ON THIS CHECKPOINT"
+Comment1 "BATTERY ONLY WHILE ELECTRODES ARE CONNECTED"
 Comment2 "LM324 reference and carrier into LM386 speaker amplifier"
 Comment3 "Pins 1 and 8 of LM386 intentionally open for gain 20"
 Comment4 "Experimental prototype - not a medical device"
 $EndDescr
 Text Notes 700 750 0 100 ~ 0
-BUILD THIS CHECKPOINT FIRST: BATTERY + VREF + CARRIER + SPEAKER. DO NOT CONNECT ELECTRODES.
+BODY-CONNECTED EXPERIMENT: BATTERY POWER ONLY. REMOVE GROUNDED TEST EQUIPMENT BEFORE ATTACHING ELECTRODES.
 $Comp
 L Connector_Generic:Conn_01x03 J1
 U 1 1 1000001A
@@ -42,8 +42,6 @@ Text Label 1250 5000 0 50 ~ 0
 REF
 Text Label 1250 5100 0 50 ~ 0
 BIAS
-Text Notes 1250 5400 0 50 ~ 0
-RESERVED: electrode acquisition stage not connected in this checkpoint
 Wire Wire Line
 	1100 1500 10000 1500
 Text Label 1250 1500 0 50 ~ 0
@@ -183,9 +181,7 @@ $EndComp
 Wire Wire Line
 	5550 4200 5000 4200
 Wire Wire Line
-	5000 3000 5000 4750
-Wire Wire Line
-	5000 4750 5550 4750
+	5000 3000 5000 4200
 Wire Wire Line
 	5850 4200 6000 4200
 Wire Wire Line
@@ -193,6 +189,10 @@ Wire Wire Line
 Wire Wire Line
 	6000 4400 6200 4400
 Connection ~ 6000 4400
+Wire Wire Line
+	5200 4750 5550 4750
+Text Label 5200 4750 0 50 ~ 0
+ENV
 Wire Wire Line
 	5850 4750 6000 4750
 Wire Wire Line
@@ -404,5 +404,330 @@ Wire Wire Line
 Text Notes 750 6900 0 60 ~ 0
 EXPECTED: VREF near half the wired supply and a quiet, steady approximately 721 Hz tone.
 Text Notes 750 7100 0 60 ~ 0
-Disconnect power before rewiring. No electrodes, grounded scope, USB, or mains-connected equipment on this checkpoint.
+Disconnect power before rewiring. Remove grounded scope, USB, and all mains-connected equipment before attaching electrodes.
+$Comp
+L Device:R R5
+U 1 1 1000001B
+P 2500 7600
+F 0 "R5" V 2293 7600 50 0000 C CNN
+F 1 "1M BIAS LIMIT" V 2384 7600 50 0000 C CNN
+	1    2500 7600
+	0 1 1 0
+$EndComp
+Text Label 2100 7600 2 50 ~ 0
+BIAS
+Wire Wire Line
+	2100 7600 2350 7600
+Wire Wire Line
+	2650 7600 3000 7600
+Text Label 3000 7600 0 50 ~ 0
+VREF
+Text Notes 1200 7400 0 60 ~ 0
+ELECTRODE INPUT / PASSIVE COMMON-MODE BIAS
+$Comp
+L Device:R R3
+U 1 1 1000001C
+P 3200 8200
+F 0 "R3" V 2993 8200 50 0000 C CNN
+F 1 "100k SAFETY" V 3084 8200 50 0000 C CNN
+	1    3200 8200
+	0 1 1 0
+$EndComp
+$Comp
+L Device:C C3
+U 1 1 1000001D
+P 3700 8200
+F 0 "C3" V 3448 8200 50 0000 C CNN
+F 1 "100n FILM" V 3539 8200 50 0000 C CNN
+	1    3700 8200
+	0 1 1 0
+$EndComp
+$Comp
+L Device:R R4
+U 1 1 1000001E
+P 4200 8200
+F 0 "R4" V 3993 8200 50 0000 C CNN
+F 1 "470k 1%" V 4084 8200 50 0000 C CNN
+	1    4200 8200
+	0 1 1 0
+$EndComp
+Text Label 2850 8200 2 50 ~ 0
+MEAS
+Wire Wire Line
+	2850 8200 3050 8200
+Wire Wire Line
+	3350 8200 3550 8200
+Wire Wire Line
+	3850 8200 4050 8200
+Wire Wire Line
+	4350 8200 5700 8200
+$Comp
+L Device:R R7
+U 1 1 1000001F
+P 3200 8800
+F 0 "R7" V 2993 8800 50 0000 C CNN
+F 1 "100k SAFETY" V 3084 8800 50 0000 C CNN
+	1    3200 8800
+	0 1 1 0
+$EndComp
+$Comp
+L Device:C C4
+U 1 1 10000020
+P 3700 8800
+F 0 "C4" V 3448 8800 50 0000 C CNN
+F 1 "100n FILM" V 3539 8800 50 0000 C CNN
+	1    3700 8800
+	0 1 1 0
+$EndComp
+$Comp
+L Device:R R8
+U 1 1 10000021
+P 4200 8800
+F 0 "R8" V 3993 8800 50 0000 C CNN
+F 1 "470k 1%" V 4084 8800 50 0000 C CNN
+	1    4200 8800
+	0 1 1 0
+$EndComp
+Text Label 2850 8800 2 50 ~ 0
+REF
+Wire Wire Line
+	2850 8800 3050 8800
+Wire Wire Line
+	3350 8800 3550 8800
+Wire Wire Line
+	3850 8800 4050 8800
+Wire Wire Line
+	4350 8800 5700 8800
+$Comp
+L Amplifier_Operational:LM324 U1
+U 2 1 10000022
+P 6000 8500
+F 0 "U1" H 6000 8867 50 0000 C CNN
+F 1 "LM324N" H 6000 8776 50 0000 C CNN
+	2    6000 8500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	5700 8200 5700 8400
+Wire Wire Line
+	5700 8800 5700 8600
+$Comp
+L Device:R R6
+U 1 1 10000023
+P 5100 7900
+F 0 "R6" V 4893 7900 50 0000 C CNN
+F 1 "10M 1% MATCH" V 4984 7900 50 0000 C CNN
+	1    5100 7900
+	0 1 1 0
+$EndComp
+$Comp
+L Device:C C5
+U 1 1 10000024
+P 5100 7700
+F 0 "C5" V 4848 7700 50 0000 C CNN
+F 1 "1.5n MATCH" V 4939 7700 50 0000 C CNN
+	1    5100 7700
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	5250 7900 5500 7900
+Wire Wire Line
+	5500 7900 5500 8400
+Wire Wire Line
+	5500 8400 5700 8400
+Connection ~ 5700 8400
+Wire Wire Line
+	5250 7700 5500 7700
+Wire Wire Line
+	5500 7700 5500 7900
+Connection ~ 5500 7900
+Wire Wire Line
+	4950 7900 4700 7900
+Wire Wire Line
+	4950 7700 4700 7700
+Wire Wire Line
+	4700 7700 4700 7900
+Text Label 4700 7700 2 50 ~ 0
+VREF
+$Comp
+L Device:R R9
+U 1 1 10000025
+P 6000 9150
+F 0 "R9" V 5793 9150 50 0000 C CNN
+F 1 "10M 1% MATCH" V 5884 9150 50 0000 C CNN
+	1    6000 9150
+	0 1 1 0
+$EndComp
+$Comp
+L Device:C C6
+U 1 1 10000026
+P 6000 9450
+F 0 "C6" V 5748 9450 50 0000 C CNN
+F 1 "1.5n MATCH" V 5839 9450 50 0000 C CNN
+	1    6000 9450
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	5850 9150 5500 9150
+Wire Wire Line
+	5500 9150 5500 8600
+Wire Wire Line
+	5500 8600 5700 8600
+Connection ~ 5700 8600
+Wire Wire Line
+	5850 9450 5500 9450
+Wire Wire Line
+	5500 9450 5500 9150
+Connection ~ 5500 9150
+Wire Wire Line
+	6150 9150 6500 9150
+Wire Wire Line
+	6500 9150 6500 8500
+Wire Wire Line
+	6300 8500 6500 8500
+Wire Wire Line
+	6150 9450 6500 9450
+Wire Wire Line
+	6500 9450 6500 9150
+Connection ~ 6500 9150
+Text Label 6500 8500 0 50 ~ 0
+DIFF_OUT
+Text Notes 4600 7400 0 60 ~ 0
+U1B MATCHED AC-COUPLED DIFFERENCE AMPLIFIER
+$Comp
+L Device:C C7
+U 1 1 10000027
+P 7500 8600
+F 0 "C7" V 7248 8600 50 0000 C CNN
+F 1 "2.2u FILM/BIPOLAR" V 7339 8600 50 0000 C CNN
+	1    7500 8600
+	0 1 1 0
+$EndComp
+$Comp
+L Device:R R10
+U 1 1 10000028
+P 8050 8600
+F 0 "R10" V 7843 8600 50 0000 C CNN
+F 1 "6.8k" V 7934 8600 50 0000 C CNN
+	1    8050 8600
+	0 1 1 0
+$EndComp
+Text Label 7150 8600 2 50 ~ 0
+DIFF_OUT
+Wire Wire Line
+	7150 8600 7350 8600
+Wire Wire Line
+	7650 8600 7900 8600
+$Comp
+L Amplifier_Operational:LM324 U1
+U 3 1 10000029
+P 8800 8500
+F 0 "U1" H 8800 8867 50 0000 C CNN
+F 1 "LM324N" H 8800 8776 50 0000 C CNN
+	3    8800 8500
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	8200 8600 8500 8600
+Wire Wire Line
+	8500 8400 8300 8400
+Text Label 8300 8400 2 50 ~ 0
+VREF
+$Comp
+L Device:R R11
+U 1 1 1000002A
+P 8800 9150
+F 0 "R11" V 8593 9150 50 0000 C CNN
+F 1 "3.3M" V 8684 9150 50 0000 C CNN
+	1    8800 9150
+	0 1 1 0
+$EndComp
+$Comp
+L Device:C C8
+U 1 1 1000002B
+P 8800 9450
+F 0 "C8" V 8548 9450 50 0000 C CNN
+F 1 "4.7n C0G" V 8639 9450 50 0000 C CNN
+	1    8800 9450
+	0 1 1 0
+$EndComp
+Wire Wire Line
+	8650 9150 8400 9150
+Wire Wire Line
+	8400 9150 8400 8600
+Wire Wire Line
+	8400 8600 8500 8600
+Connection ~ 8500 8600
+Wire Wire Line
+	8650 9450 8400 9450
+Wire Wire Line
+	8400 9450 8400 9150
+Connection ~ 8400 9150
+Wire Wire Line
+	8950 9150 9300 9150
+Wire Wire Line
+	9300 9150 9300 8500
+Wire Wire Line
+	9100 8500 9300 8500
+Wire Wire Line
+	8950 9450 9300 9450
+Wire Wire Line
+	9300 9450 9300 9150
+Connection ~ 9300 9150
+Text Label 9300 8500 0 50 ~ 0
+ALPHA
+Text Notes 7350 7400 0 60 ~ 0
+U1C 10.45 Hz ALPHA GAIN / BAND-PASS
+$Comp
+L Device:D_Schottky D1
+U 1 1 1000002C
+P 10100 8500
+F 0 "D1" H 10100 8284 50 0000 C CNN
+F 1 "BAT54 / 1N5711" H 10100 8375 50 0000 C CNN
+	1    10100 8500
+	-1 0 0 1
+$EndComp
+Text Label 9700 8500 2 50 ~ 0
+ALPHA
+Wire Wire Line
+	9700 8500 9950 8500
+Wire Wire Line
+	10250 8500 10600 8500
+Text Label 10600 8500 0 50 ~ 0
+ENV
+$Comp
+L Device:R R12
+U 1 1 1000002D
+P 10600 9000
+F 0 "R12" H 10670 9046 50 0000 L CNN
+F 1 "220k" H 10670 8955 50 0000 L CNN
+	1    10600 9000
+	1 0 0 -1
+$EndComp
+$Comp
+L Device:C C9
+U 1 1 1000002E
+P 11200 9000
+F 0 "C9" H 11315 9046 50 0000 L CNN
+F 1 "1u" H 11315 8955 50 0000 L CNN
+	1    11200 9000
+	1 0 0 -1
+$EndComp
+Wire Wire Line
+	10600 8500 10600 8850
+Wire Wire Line
+	10600 8500 11200 8500
+Wire Wire Line
+	11200 8500 11200 8850
+Connection ~ 10600 8500
+Wire Wire Line
+	10600 9150 10600 9400
+Wire Wire Line
+	10600 9400 11200 9400
+Wire Wire Line
+	11200 9400 11200 9150
+Text Label 10600 9400 2 50 ~ 0
+VREF
+Text Notes 9800 7400 0 60 ~ 0
+PASSIVE PEAK DETECTOR: 0.22 s RELEASE TO VREF
 $EndSCHEMATC
