@@ -20,34 +20,10 @@ Comment4 "Experimental prototype - not a medical device"
 $EndDescr
 Text Notes 700 750 0 100 ~ 0
 BUILD THIS CHECKPOINT FIRST: BATTERY + VREF + CARRIER + SPEAKER. DO NOT CONNECT ELECTRODES.
-$Comp
-L Device:Battery BT1
-U 1 1 10000001
-P 1100 3000
-F 0 "BT1" H 1208 3046 50 0000 L CNN
-F 1 "6xAA (9V)" H 1208 2955 50 0000 L CNN
-	1    1100 3000
-	1 0 0 -1
-$EndComp
-$Comp
-L Switch:SW_SPST SW1
-U 1 1 10000002
-P 1100 2200
-F 0 "SW1" V 1146 2112 50 0000 R CNN
-F 1 "POWER" V 1055 2112 50 0000 R CNN
-	1    1100 2200
-	0 -1 -1 0
-$EndComp
-Wire Wire Line
-	1100 2400 1100 2850
-Wire Wire Line
-	1100 2000 1100 1500
 Wire Wire Line
 	1100 1500 10000 1500
 Text Label 1250 1500 0 50 ~ 0
 BAT+
-Wire Wire Line
-	1100 3150 1100 6500
 Wire Wire Line
 	1100 6500 11000 6500
 $Comp
@@ -222,17 +198,17 @@ Wire Wire Line
 $Comp
 L Device:C C10
 U 1 1 1000000D
-P 5700 5500
-F 0 "C10" H 5815 5546 50 0000 L CNN
-F 1 "10n" H 5815 5455 50 0000 L CNN
-	1    5700 5500
+P 6100 5500
+F 0 "C10" H 6215 5546 50 0000 L CNN
+F 1 "10n" H 6215 5455 50 0000 L CNN
+	1    6100 5500
 	1 0 0 -1
 $EndComp
 Wire Wire Line
-	5700 5350 5700 5250
-Wire Wire Line
-	5700 5250 6100 5250
+	6100 5350 6100 5250
 Connection ~ 6100 5250
+Wire Wire Line
+	6100 5650 5700 5650
 Wire Wire Line
 	5700 5650 5700 3000
 Wire Wire Line
@@ -288,6 +264,7 @@ F 1 "LM386" H 9844 4455 50 0000 L CNN
 $EndComp
 Wire Wire Line
 	8500 4500 9000 4500
+Connection ~ 8500 4500
 Wire Wire Line
 	9000 4500 9000 4400
 Wire Wire Line
@@ -297,24 +274,33 @@ Wire Wire Line
 Wire Wire Line
 	8900 4600 8900 6500
 Wire Wire Line
-	9500 4200 9500 1500
+	9400 4200 9400 1500
 Wire Wire Line
-	9500 4800 9500 6500
+	9400 4800 9400 6500
+NoConn ~ 9500 4800
+NoConn ~ 9600 4800
 $Comp
 L Device:C_Polarized C12
 U 1 1 10000011
-P 10000 5000
-F 0 "C12" H 10118 5046 50 0000 L CNN
-F 1 "10u" H 10118 4955 50 0000 L CNN
-	1    10000 5000
-	1 0 0 -1
+P 9500 3500
+F 0 "C12" H 9618 3546 50 0000 L CNN
+F 1 "10u BYPASS" H 9618 3455 50 0000 L CNN
+	1    9500 3500
+	-1 0 0 1
 $EndComp
 Wire Wire Line
-	9800 4700 10000 4700
+	9500 3650 9500 4200
 Wire Wire Line
-	10000 4700 10000 4850
-Wire Wire Line
-	10000 5150 10000 6500
+	9500 3350 9500 3200
+$Comp
+L power:GND #PWR0102
+U 1 1 10000019
+P 9500 3200
+F 0 "#PWR0102" H 9500 2950 50 0001 C CNN
+F 1 "GND" H 9505 3027 50 0000 C CNN
+	1    9500 3200
+	-1 0 0 1
+$EndComp
 $Comp
 L Device:C_Polarized C15
 U 1 1 10000012
@@ -370,7 +356,7 @@ L Device:C C13
 U 1 1 10000016
 P 8500 2500
 F 0 "C13" H 8615 2546 50 0000 L CNN
-F 1 "100n" H 8615 2455 50 0000 L CNN
+F 1 "100n U2" H 8615 2455 50 0000 L CNN
 	1    8500 2500
 	1 0 0 -1
 $EndComp
@@ -392,7 +378,7 @@ Wire Wire Line
 Wire Wire Line
 	9000 2650 9000 6500
 Text Notes 750 6900 0 60 ~ 0
-EXPECTED: VREF near 4.5 V and a steady approximately 721 Hz tone. Start VR1 fully down.
+EXPECTED: VREF near half the wired supply and a quiet, steady approximately 721 Hz tone.
 Text Notes 750 7100 0 60 ~ 0
 Disconnect power before rewiring. No electrodes, grounded scope, USB, or mains-connected equipment on this checkpoint.
 $EndSCHEMATC
