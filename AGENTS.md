@@ -15,6 +15,9 @@ wired MVP uses a keyed 9 V isolated-battery input and three electrodes (`MEAS`,
 `REF`, `BIAS`), an inventory-first LM324N for buffered mid-supply reference, AC-coupled
 differential acquisition, 8.7-12.4 Hz alpha-band gain, and envelope-controlled
 audible oscillation, plus an LM386 for speaker output.
+Each electrode enters through two independent series current-limiting
+resistors: 100 kΩ + 100 kΩ on MEAS and REF, and 1 MΩ + 1 MΩ on BIAS.
+These resistors do not relax the isolated-battery-only operating rule.
 An LM358N precision peak detector converts filtered alpha amplitude into
 `ENV`: U3A compensates the forward drop of D1 inside its feedback loop, R12/C9
 hold the raw envelope relative to VREF, and U3B buffers that node before R16

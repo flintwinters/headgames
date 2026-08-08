@@ -196,6 +196,35 @@ def assert_isolated_battery_input(
     assert key_net == {("J2", "2")}, "J2 pin 2 must remain an unused key"
 
 
+def assert_redundant_electrode_limiting(
+    nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
+) -> None:
+    """Require two independent current-limiting resistors per electrode."""
+    paths = (
+        ("1", "R23", "R7", 50e-6),
+        ("2", "R22", "R3", 50e-6),
+        ("3", "R21", "R5", 5e-6),
+    )
+    for connector_pin, outer, inner, maximum_current in paths:
+        connector_net = next(
+            net for net in nets.values() if ("J1", connector_pin) in net
+        )
+        assert connector_net == {("J1", connector_pin), (outer, "2")}, (
+            f"J1 pin {connector_pin} must first pass through {outer}"
+        )
+        circuit_net = next(net for net in nets.values() if (outer, "1") in net)
+        assert (inner, "2") in circuit_net, (
+            f"{outer} and {inner} must be independent series limiters"
+        )
+        fault_free_current = 9.0 / (
+            resistance(values[outer]) + resistance(values[inner])
+        )
+        assert fault_free_current <= maximum_current, (
+            f"J1 pin {connector_pin} current limit is "
+            f"{fault_free_current * 1e6:.1f} uA"
+        )
+
+
 def assert_erc_clean() -> None:
     """Require KiCad's complete electrical-rules check to pass."""
     report = PROJECT_ROOT / ".headgames-test-erc.rpt"
@@ -234,6 +263,7 @@ def test() -> None:
     assert_eeg_signal_path(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
+    assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
     console.print("[green]Schematic connectivity checks passed.[/green]")
 

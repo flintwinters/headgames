@@ -2301,26 +2301,6 @@
 	)
 	(wire
 		(pts
-			(xy 66.04 146.05) (xy 57.15 146.05)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "053b4341-bde5-497d-bd91-c250bd263cd2")
-	)
-	(wire
-		(pts
-			(xy 57.15 148.59) (xy 76.2 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0606a647-bb73-49f7-b01f-347e0debfa8a")
-	)
-	(wire
-		(pts
 			(xy 241.3 58.42) (xy 241.3 71.12)
 		)
 		(stroke
@@ -2358,16 +2338,6 @@
 			(type default)
 		)
 		(uuid "0e752be6-e62f-4eb9-b020-8fd7333d700a")
-	)
-	(wire
-		(pts
-			(xy 57.15 151.13) (xy 86.36 151.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0ebf3304-996b-46e7-9aee-0b81ed106a6b")
 	)
 	(wire
 		(pts
@@ -3753,6 +3723,31 @@
 		(stroke (width 0) (type default))
 		(uuid "a3000000-0000-4000-8000-000000000002")
 	)
+	(wire
+		(pts (xy 57.15 146.05) (xy 58.42 146.05))
+		(stroke (width 0) (type default))
+		(uuid "b3000000-0000-4000-8000-000000000001")
+	)
+	(wire
+		(pts (xy 57.15 148.59) (xy 58.42 148.59))
+		(stroke (width 0) (type default))
+		(uuid "b3000000-0000-4000-8000-000000000003")
+	)
+	(wire
+		(pts (xy 66.04 148.59) (xy 76.2 148.59))
+		(stroke (width 0) (type default))
+		(uuid "b3000000-0000-4000-8000-000000000004")
+	)
+	(wire
+		(pts (xy 57.15 151.13) (xy 58.42 151.13))
+		(stroke (width 0) (type default))
+		(uuid "b3000000-0000-4000-8000-000000000005")
+	)
+	(wire
+		(pts (xy 66.04 151.13) (xy 86.36 151.13))
+		(stroke (width 0) (type default))
+		(uuid "b3000000-0000-4000-8000-000000000006")
+	)
 	(label "ALPHA"
 		(at 252.73 182.88 0)
 		(effects
@@ -3924,7 +3919,7 @@
 		(uuid "bd299114-81c4-4486-b93c-de2740bca4cd")
 	)
 	(label "BIAS"
-		(at 64.77 146.05 180)
+		(at 66.04 146.05 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7557,6 +7552,60 @@
 		(pin "1" (uuid "a1040000-0000-4000-8000-000000000001"))
 		(pin "2" (uuid "a1040000-0000-4000-8000-000000000002"))
 		(instances (project "headgames" (path "/16bca6b0-2f64-4676-a185-d512cb0de7e5" (reference "C17") (unit 1))))
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 62.23 146.05 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b1000000-0000-4000-8000-000000000001")
+		(property "Reference" "R21" (at 62.23 140.7922 90) (effects (font (size 1.27 1.27))))
+		(property "Value" "1M BIAS SAFETY B" (at 62.23 143.1036 90) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Description" "Independent electrode current-limiting resistor" (at 62.23 146.05 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(pin "1" (uuid "b1010000-0000-4000-8000-000000000001"))
+		(pin "2" (uuid "b1010000-0000-4000-8000-000000000002"))
+		(instances (project "headgames" (path "/16bca6b0-2f64-4676-a185-d512cb0de7e5" (reference "R21") (unit 1))))
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 62.23 148.59 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b1000000-0000-4000-8000-000000000002")
+		(property "Reference" "R22" (at 62.23 143.3322 90) (effects (font (size 1.27 1.27))))
+		(property "Value" "100k MEAS SAFETY B" (at 62.23 145.6436 90) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Description" "Independent electrode current-limiting resistor" (at 62.23 148.59 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(pin "1" (uuid "b1020000-0000-4000-8000-000000000001"))
+		(pin "2" (uuid "b1020000-0000-4000-8000-000000000002"))
+		(instances (project "headgames" (path "/16bca6b0-2f64-4676-a185-d512cb0de7e5" (reference "R22") (unit 1))))
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 62.23 151.13 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b1000000-0000-4000-8000-000000000003")
+		(property "Reference" "R23" (at 62.23 145.8722 90) (effects (font (size 1.27 1.27))))
+		(property "Value" "100k REF SAFETY B" (at 62.23 148.18359999999998 90) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Datasheet" "" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Description" "Independent electrode current-limiting resistor" (at 62.23 151.13 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(pin "1" (uuid "b1030000-0000-4000-8000-000000000001"))
+		(pin "2" (uuid "b1030000-0000-4000-8000-000000000002"))
+		(instances (project "headgames" (path "/16bca6b0-2f64-4676-a185-d512cb0de7e5" (reference "R23") (unit 1))))
 	)
 	(sheet_instances
 		(path "/"
