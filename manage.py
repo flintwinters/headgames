@@ -163,7 +163,7 @@ def assert_isolated_battery_input(
     ground_net = next(net for net in nets.values() if ("U1", "11") in net)
     key_net = next(net for net in nets.values() if ("J2", "2") in net)
 
-    assert values["J2"] == "9V ISOLATED BATTERY"
+    assert values["J2"] == "9V BATTERY IN"
     assert ("J2", "1") in vcc_net, "J2 pin 1 must supply positive 9 V"
     assert ("J2", "3") in ground_net, "J2 pin 3 must be battery return"
     assert key_net == {("J2", "2")}, "J2 pin 2 must remain an unused key"
