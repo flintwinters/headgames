@@ -2294,7 +2294,7 @@
 	)
 	(wire
 		(pts
-			(xy 101.6 76.2) (xy 106.68 76.2)
+			(xy 101.6 76.2) (xy 102.87 76.2)
 		)
 		(stroke
 			(width 0)
@@ -2824,7 +2824,7 @@
 	)
 	(wire
 		(pts
-			(xy 106.68 76.2) (xy 111.76 76.2)
+			(xy 110.49 76.2) (xy 111.76 76.2)
 		)
 		(stroke
 			(width 0)
@@ -2884,7 +2884,7 @@
 	)
 	(wire
 		(pts
-			(xy 106.68 69.85) (xy 106.68 76.2)
+			(xy 111.76 69.85) (xy 111.76 76.2)
 		)
 		(stroke
 			(width 0)
@@ -3363,7 +3363,7 @@
 		(uuid "840d67f8-3599-4d98-bba7-0d27f8314de0")
 	)
 	(label "VREF"
-		(at 106.68 69.85 0)
+		(at 111.76 69.85 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3763,6 +3763,70 @@
 			(project "headgames"
 				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
 					(reference "U1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 106.68 76.2 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "6de36d56-144e-4fde-aa2f-5cda9962878e")
+		(property "Reference" "R17"
+			(at 106.68 70.9422 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100 VREF ISOLATION"
+			(at 106.68 73.2536 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 106.68 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 106.68 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 106.68 76.2 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "72522218-f021-48e5-89c7-b75505471745")
+		)
+		(pin "2"
+			(uuid "ceaf13d6-5a03-4c31-a000-4417421b8bd5")
+		)
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "R17")
 					(unit 1)
 				)
 			)

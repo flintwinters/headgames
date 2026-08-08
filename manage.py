@@ -61,6 +61,17 @@ def assert_audio_input_path(nets: dict[str, set[tuple[str, str]]]) -> None:
     assert ("U2", "3") not in ground_net, "U2 signal input must not be grounded"
 
 
+def assert_vref_capacitor_isolated(nets: dict[str, set[tuple[str, str]]]) -> None:
+    """Require C1 to be isolated from the U1A follower output."""
+    buffer_net = next(net for net in nets.values() if ("U1", "1") in net)
+    vref_net = next(net for net in nets.values() if ("C1", "1") in net)
+
+    assert ("U1", "2") in buffer_net, "U1A must remain a voltage follower"
+    assert ("R17", "2") in buffer_net, "R17 must connect to the U1A output"
+    assert ("R17", "1") in vref_net, "R17 must feed the reservoir side of VREF"
+    assert ("U1", "1") not in vref_net, "C1 must not directly load the U1A output"
+
+
 @app.callback()
 def main() -> None:
     """Calculate and verify the documented circuit design."""
@@ -71,6 +82,7 @@ def test() -> None:
     """Run the project's repeatable engineering checks."""
     nets = schematic_nets()
     assert_audio_input_path(nets)
+    assert_vref_capacitor_isolated(nets)
     console.print("[green]Schematic connectivity checks passed.[/green]")
 
 
