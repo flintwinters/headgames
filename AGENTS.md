@@ -34,6 +34,14 @@ the 10 MΩ acquisition network; preserve a clear replacement boundary for
 future electrode-side buffers or an instrumentation amplifier, but do not make
 an unavailable amplifier mandatory for the MVP.
 
+`manage.py simulate-eeg` is the repeatable small-signal validation path. It
+extracts component values from the authoritative schematic and models a 20 kΩ
+electrode source per input. At midpoint trims it predicts about 2,433 V/V at
+10 Hz and a broad 3.69-14.71 Hz -3 dB span, with a response maximum near
+7.53 Hz. Treat this as evidence that the MVP has useful EEG-scale gain but weak
+alpha selectivity, not as a substitute for noise, artifact, tolerance, or
+isolated bench validation.
+
 Anything conductively connected to electrodes must use an isolated wired DC
 supply with no mains-earth or USB connection while worn. Remove grounded
 scopes, non-isolated bench supplies, USB, chargers, powered audio, and other

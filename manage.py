@@ -224,6 +224,15 @@ def assert_eeg_simulation(values: dict[str, str]) -> None:
             )
 
     nominal = eeg_path_model(values)
+    nominal_sweep = logarithmic_sweep(nominal)
+    nominal_peak = max(abs(point.total_gain) for point in nominal_sweep)
+    passband = tuple(
+        point.frequency_hz
+        for point in nominal_sweep
+        if abs(point.total_gain) >= nominal_peak / math.sqrt(2)
+    )
+    assert 3.6 <= passband[0] <= 3.8
+    assert 14.5 <= passband[-1] <= 14.9
     gain_10_hz = abs(simulate_ac(nominal, 10.0).total_gain)
     assert 2_300 <= gain_10_hz <= 2_500
     # 200 uV peak is the high end of the documented alpha fixture.  It must
@@ -236,6 +245,12 @@ def print_eeg_simulation(values: dict[str, str]) -> None:
     model = eeg_path_model(values)
     sweep = logarithmic_sweep(model)
     peak = max(sweep, key=lambda point: abs(point.total_gain))
+    peak_gain = abs(peak.total_gain)
+    passband = tuple(
+        point.frequency_hz
+        for point in sweep
+        if abs(point.total_gain) >= peak_gain / math.sqrt(2)
+    )
     table = Table(title="EEG path AC simulation (trimmers at midpoint)")
     table.add_column("Input")
     table.add_column("Frequency", justify="right")
@@ -253,7 +268,8 @@ def print_eeg_simulation(values: dict[str, str]) -> None:
     console.print(table)
     console.print(
         f"Response peak: [bold]{peak.frequency_hz:.2f} Hz[/bold] at "
-        f"{abs(peak.total_gain):.0f} V/V; assumed electrode source resistance: "
+        f"{peak_gain:.0f} V/V; -3 dB span: {passband[0]:.2f}-"
+        f"{passband[-1]:.2f} Hz; assumed electrode source resistance: "
         "20 kohm per differential source."
     )
     console.print(
