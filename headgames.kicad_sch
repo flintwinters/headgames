@@ -3854,45 +3854,73 @@
 		(stroke (width 0) (type default))
 		(uuid "d1000000-0000-4000-8000-00000000000a")
 	)
-	(label "MEAS_SITE"
-		(at 87.63 177.8 180)
-		(effects (font (size 1.27 1.27)) (justify right bottom))
+	(wire
+		(pts
+			(xy 86.36 146.05) (xy 82.55 146.05)
+		)
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000001")
 	)
-	(label "MEAS_SITE"
-		(at 86.36 146.05 0)
-		(effects (font (size 1.27 1.27)) (justify left bottom))
+	(wire
+		(pts
+			(xy 82.55 146.05) (xy 82.55 177.8)
+		)
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000002")
 	)
-	(label "MEAS_BUFFERED"
-		(at 115.57 180.34 0)
-		(effects (font (size 1.27 1.27)) (justify left bottom))
+	(wire
+		(pts
+			(xy 82.55 177.8) (xy 87.63 177.8)
+		)
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000003")
 	)
-	(label "MEAS_BUFFERED"
-		(at 91.44 146.05 180)
-		(effects (font (size 1.27 1.27)) (justify right bottom))
+	(wire
+		(pts
+			(xy 115.57 180.34) (xy 120.65 180.34)
+		)
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000004")
 	)
-	(label "REF_SITE"
-		(at 87.63 195.58 180)
-		(effects (font (size 1.27 1.27)) (justify right bottom))
+	(wire
+		(pts (xy 120.65 180.34) (xy 120.65 146.05))
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000005")
 	)
-	(label "REF_SITE"
-		(at 86.36 151.13 0)
-		(effects (font (size 1.27 1.27)) (justify left bottom))
+	(wire
+		(pts (xy 120.65 146.05) (xy 91.44 146.05))
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000006")
 	)
-	(label "REF_BUFFERED"
-		(at 115.57 198.12 0)
-		(effects (font (size 1.27 1.27)) (justify left bottom))
+	(wire
+		(pts (xy 86.36 151.13) (xy 80.01 151.13))
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000007")
 	)
-	(label "REF_BUFFERED"
-		(at 91.44 151.13 180)
-		(effects (font (size 1.27 1.27)) (justify right bottom))
+	(wire
+		(pts (xy 80.01 151.13) (xy 80.01 195.58))
+		(stroke (width 0) (type default))
 		(uuid "d2000000-0000-4000-8000-000000000008")
+	)
+	(wire
+		(pts (xy 80.01 195.58) (xy 87.63 195.58))
+		(stroke (width 0) (type default))
+		(uuid "d2000000-0000-4000-8000-000000000009")
+	)
+	(wire
+		(pts (xy 115.57 198.12) (xy 123.19 198.12))
+		(stroke (width 0) (type default))
+		(uuid "d2000000-0000-4000-8000-00000000000a")
+	)
+	(wire
+		(pts (xy 123.19 198.12) (xy 123.19 151.13))
+		(stroke (width 0) (type default))
+		(uuid "d2000000-0000-4000-8000-00000000000b")
+	)
+	(wire
+		(pts (xy 123.19 151.13) (xy 91.44 151.13))
+		(stroke (width 0) (type default))
+		(uuid "d2000000-0000-4000-8000-00000000000c")
 	)
 	(label "REF"
 		(at 76.2 151.13 180)

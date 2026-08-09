@@ -1913,6 +1913,18 @@ def assert_erc_clean() -> None:
         report.unlink(missing_ok=True)
 
 
+def assert_core_signal_path_drawn_explicitly() -> None:
+    """Reject label jumps that make the safety-critical EEG path look open."""
+    schematic = SCHEMATIC.read_text()
+    hidden_path_labels = {
+        name for name in ("MEAS_SITE", "REF_SITE", "MEAS_BUFFERED", "REF_BUFFERED")
+        if f'(label "{name}"' in schematic
+    }
+    require(not hidden_path_labels,
+            "core EEG path uses hidden label jumps: "
+            + ", ".join(sorted(hidden_path_labels)))
+
+
 @app.callback()
 def main() -> None:
     """Calculate and verify the documented circuit design."""
@@ -1943,6 +1955,7 @@ def test() -> None:
     require(math.isfinite(expected_carrier), "analytical oscillator frequency is not finite")
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
+    assert_core_signal_path_drawn_explicitly()
     assert_erc_clean()
     require_spice_models()
     require_frontier_alignment()
