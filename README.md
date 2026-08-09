@@ -42,12 +42,13 @@ least 25%.
 | Existing path | 2,433 V/V at 10 Hz; peak 7.53 Hz; −3 dB span 3.69–14.71 Hz | Adequate gain, weak selectivity |
 | Artifact fixture | `ENV` changes 3.8% with alpha | Fail |
 | Active electrodes | Mains falls 0.686→0.004 V, but motion reaches 1.000 V and `ENV` changes 2.8% | Fail; buffers solve cable imbalance, not motion |
-| Two-biquad filter | 9.798 Hz center, Q 1.576 per section, ideal 8–12 Hz span | Pass: 565% passive, 1,046% active |
-| Filter coefficient corners | Independent ±2% center and ±5% Q | Pass: ≥502% passive, ≥908% active |
+| Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
+| Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
 
 The active-electrode sensitivity model assumes 5 pF input capacitance, 1 MHz
 GBW, 100 Ω output resistance, 10 pA bias, 25 nV/√Hz white noise, and unequal
-150/250 pF cables. The sharper-filter result uses ideal biquads; physical
+150/250 pF cables. The sharper-filter figures are ideal transfer-function
+targets, not a hardware pass. The model uses ideal biquads; physical
 passive synthesis, correlated tolerances, filter noise, op-amp limits,
 saturation, overload recovery, electrode nonlinearities, and isolated phantom
 measurement remain outstanding.

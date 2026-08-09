@@ -36,8 +36,8 @@ evidence is:
 | Existing path | 2,433 V/V at 10 Hz; broad 3.69–14.71 Hz −3 dB span |
 | Artifact survival | Alpha changes mean `ENV` 3.8%, below the 25% target |
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
-| Planned two-biquad filter | 9.798 Hz center, Q 1.576/section; `ENV` changes 565% passive and 1,046% active |
-| Filter coefficient corners | ±2% center, ±5% Q remain ≥502% passive and ≥908% active |
+| Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
+| Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
 
 Thus sharper selectivity is the leading fix. The filter model is not yet
 buildable hardware: synthesize its physical network and validate tolerances,
