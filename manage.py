@@ -1430,16 +1430,17 @@ RL out 0 10k
     return noise
 
 
-def spice_ti_cable_transient(cable_pf: float = 250.0) -> tuple[float, float]:
+def spice_ti_cable_transient(cable_pf: float = 250.0,
+                             isolation_ohm: float = 100.0) -> tuple[float, float]:
     """Measure step overshoot and 2% settling through the physical 100 ohm isolator."""
     output_dir = PROJECT_ROOT / "build" / "spice"
-    deck = output_dir / f"ti_cable_{int(cable_pf)}pf.cir"
+    deck = output_dir / f"ti_cable_{int(cable_pf)}pf_{isolation_ohm:g}ohm.cir"
     deck.write_text(f"""Headgames TI LM358 isolated cable transient
 .include {TI_MODEL.resolve()}
 VCC vcc 0 9
 VIN plus 0 pulse(4.4 4.6 1m 1u 1u 4m 10m)
 XU plus raw vcc 0 raw LMX58_LM2904
-RISO raw cable 100
+RISO raw cable {isolation_ohm:g}
 CCABLE cable 0 {cable_pf:g}p
 RLOAD cable vref 474k
 VLOAD vref 0 4.5
@@ -1461,6 +1462,20 @@ VLOAD vref 0 4.5
             settling = time - 1e-3
             break
     return overshoot, settling
+
+
+def select_cable_isolation(values: dict[str, str]) -> tuple[float, float, float]:
+    """Choose the smallest stocked resistor passing both TI cable loads."""
+    stocked = sorted({item.value for item in read_inventory(BOM, values)
+                      if item.kind == "R" and item.value >= 100.0})
+    for resistor in stocked:
+        results = tuple(spice_ti_cable_transient(cable, resistor)
+                        for cable in (150.0, 250.0))
+        if (max(result[0] for result in results) <= 0.20
+                and max(result[1] for result in results) <= 1e-3):
+            return resistor, max(result[0] for result in results), max(
+                result[1] for result in results)
+    raise VerificationError("no stocked cable-isolation resistor passes the TI model")
 
 
 def spice_ti_rectifier_transient() -> tuple[float, float]:
@@ -1955,6 +1970,15 @@ def characterize_ti_model_command() -> None:
             "TI cable overshoot exceeds 20%")
     require(max(settling_150, settling_250) <= 1e-3,
             "TI cable settling exceeds 1 ms")
+
+
+@app.command("synthesize-cable-isolation")
+def synthesize_cable_isolation_command() -> None:
+    """Select the least stocked isolation resistance passing TI transients."""
+    _, values = schematic_data()
+    resistor, overshoot, settling = select_cable_isolation(values)
+    console.print(f"Selected stocked cable isolation: {resistor:g} Ω; worst "
+                  f"overshoot {overshoot:.1%}; settling {settling*1e6:.1f} µs.")
 
 
 @app.command("compare-physical-frontier")
