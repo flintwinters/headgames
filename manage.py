@@ -58,14 +58,22 @@ from inventory import (
     synthesize_mfb,
 )
 from sonification import (
+    BROADBAND_REJECTION_HZ,
+    BROADBAND_SLOW_HZ,
+    BROADBAND_WANTED_HZ,
     CANDIDATES,
+    BroadbandBuildResult,
+    BroadbandParts,
     ChannelParts,
     MfbParts,
     SonificationBuild,
     closed_form_group_delay,
+    broadband_group_delay,
+    broadband_transfer_gain,
     group_delay as sonification_group_delay,
     relaxation_frequency,
     simulate_build,
+    simulate_broadband_build,
 )
 
 
@@ -76,6 +84,9 @@ SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
 BOM = PROJECT_ROOT / "headgames_bom.csv"
 TI_MODEL = PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib"
 ALPHA_REDESIGN_R6_OHM = (100_000.0, 68_000.0, 47_000.0)
+BROADBAND_GAIN_FEEDBACK_OHM = (390_000.0, 470_000.0, 560_000.0, 680_000.0, 820_000.0)
+BROADBAND_R6_OHM = (47_000.0, 68_000.0, 100_000.0)
+BROADBAND_GAIN_INPUT_OHM = 100_000.0
 
 LM324_ACQUISITION = AmplifierLimits(
     "LM324N acquisition", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.5e6,
@@ -726,6 +737,94 @@ def _alpha_redesign_case(arguments):
     delay = max(sonification_group_delay(build, candidate, 8+0.1*index)
                 for index in range(41))
     return candidate.name, r6, build_index, result, delay
+
+
+def nominal_broadband_parts(feedback_ohm: float) -> BroadbandParts:
+    """Materialize the proposed flat-gain and 60 Hz notch physical leaves."""
+    return BroadbandParts(BROADBAND_GAIN_INPUT_OHM, feedback_ohm,
+                          332_000.0, 332_000.0, 8.0e-9, 8.0e-9)
+
+
+def broadband_build_from(build: SonificationBuild, nominal: SonificationBuild
+                         ) -> SonificationBuild:
+    """Retune the existing differential stage to gentle 1/30 Hz edges."""
+    def channel(item: ChannelParts, reference: ChannelParts) -> ChannelParts:
+        return replace(item,
+                       input_f=330e-9*(item.input_f/reference.input_f),
+                       feedback_f=530e-12*(item.feedback_f/reference.feedback_f))
+    return replace(build, meas=channel(build.meas, nominal.meas),
+                   ref=channel(build.ref, nominal.ref))
+
+
+def sampled_broadband_parts(feedback_ohm: float, rng: random.Random
+                            ) -> BroadbandParts:
+    """Move every notch/gain physical leaf independently and deterministically."""
+    nominal = nominal_broadband_parts(feedback_ohm)
+    move = lambda value, tolerance: value*(1+rng.uniform(-tolerance, tolerance))
+    return BroadbandParts(
+        move(nominal.gain_input_ohm, 0.001),
+        move(nominal.gain_feedback_ohm, 0.001),
+        move(nominal.notch_r1_ohm, 0.001), move(nominal.notch_r2_ohm, 0.001),
+        move(nominal.notch_c1_f, 0.001), move(nominal.notch_c2_f, 0.001),
+        nominal.notch_q,
+    )
+
+
+def _broadband_redesign_case(arguments):
+    """Picklable complete-path worker with an explicit campaign identity."""
+    feedback, r6, build_index, build, nominal, phase_steps, seed = arguments
+    rng = random.Random(seed ^ (build_index*0x9E3779B1) ^ int(feedback) ^ int(r6))
+    parts = (nominal_broadband_parts(feedback) if build_index == 0
+             else sampled_broadband_parts(feedback, rng))
+    physical = broadband_build_from(build, nominal)
+    physical = replace(physical, r6_ohm=(r6 if build_index == 0
+                                        else r6*(1+rng.uniform(-0.05, 0.05))))
+    result = simulate_broadband_build(physical, parts, phase_steps)
+    return feedback, r6, build_index, parts, result
+
+
+def require_complete_broadband_campaign(
+    identities: list[tuple[float, float, int]], expected: set[tuple[float, float, int]],
+    results: list[BroadbandBuildResult], phase_steps: int,
+) -> None:
+    """Reject missing/duplicate cases and implicit or duplicated phase coverage."""
+    require(len(identities) == len(set(identities)), "duplicate broadband campaign identity")
+    require(set(identities) == expected, "missing or unexpected broadband campaign identity")
+    for identity, result in zip(identities, results, strict=True):
+        require(result.phase_ids == tuple(range(phase_steps)),
+                f"{identity}: incomplete or duplicated phase identities")
+        reported = {item.frequency_hz for item in result.frequencies}
+        required = set(BROADBAND_WANTED_HZ+BROADBAND_SLOW_HZ+BROADBAND_REJECTION_HZ)
+        require(reported == required, f"{identity}: incomplete frequency reporting")
+
+
+def verify_broadband_integrity(values: dict[str, str]) -> None:
+    """Durably prove topology math, independent leaves, and fail-closed coverage."""
+    nominal = broadband_build_from(nominal_sonification_build(values, "wet"),
+                                   nominal_sonification_build(values, "wet"))
+    parts = nominal_broadband_parts(470_000.0)
+    require(broadband_transfer_gain(nominal, parts, 10.0) > 0,
+            "broadband path has zero transfer")
+    require(broadband_transfer_gain(nominal, parts, 60.0)
+            < broadband_transfer_gain(nominal, parts, 59.0),
+            "60 Hz notch is not centered")
+    require(broadband_group_delay(nominal, parts, 4.0) <= 0.030,
+            "nominal broadband 4 Hz delay exceeds the declared gate")
+    left = sampled_broadband_parts(470_000.0, random.Random(0x42524F41))
+    right = sampled_broadband_parts(470_000.0, random.Random(0x42524F41))
+    require(left == right, "broadband physical sampling is not deterministic")
+    require(left.notch_r1_ohm != left.notch_r2_ohm,
+            "independent notch resistors moved together")
+    require(left.notch_c1_f != left.notch_c2_f,
+            "independent notch capacitors moved together")
+    fake = BroadbandBuildResult(tuple(range(4)), tuple(), 700, 0.5, 1, 0, False, False, ())
+    try:
+        require_complete_broadband_campaign([(390e3, 47e3, 0), (390e3, 47e3, 0)],
+                                            {(390e3, 47e3, 0)}, [fake, fake], 4)
+    except VerificationError:
+        pass
+    else:
+        raise VerificationError("duplicate campaign deliberately passed")
 
 
 def active_electrode_channels(electrode: str | None = None
@@ -2030,6 +2129,7 @@ def test() -> None:
     verify_physical_filter_synthesis()
     verify_inventory_synthesis(values)
     verify_sonification_integrity(values)
+    verify_broadband_integrity(values)
     threshold_low = (4.5 + 0.020 + 4.5) / 3
     threshold_high = (4.5 + 7.0 + 4.5) / 3
     expected_carrier = relaxation_frequency(100_000.0, 10e-9, 0.020, 7.0,
@@ -2216,6 +2316,104 @@ def evaluate_alpha_redesign(
         "amplifier allocation, leaf-level spreads, and device-level nonlinear "
         "evidence remain incomplete."
     )
+
+
+@app.command("evaluate-broadband-redesign")
+def evaluate_broadband_redesign(
+    samples: int = typer.Option(1, min=1),
+    seed: int = typer.Option(0x42524F41, min=0),
+    phase_steps: int = typer.Option(16, min=16),
+    workers: int = typer.Option(4, min=1, max=32),
+) -> None:
+    """Compare every flat-gain/R6 pair using one identical wet-path campaign."""
+    _, values = schematic_data()
+    nominal = nominal_sonification_build(values, "wet")
+    rng = random.Random(seed)
+    builds = [nominal]
+    builds.extend(sampled_sonification_build(values, "wet", rng) for _ in range(samples))
+    tasks = [
+        (feedback, r6, build_index, build, nominal, phase_steps, seed)
+        for feedback in BROADBAND_GAIN_FEEDBACK_OHM
+        for r6 in BROADBAND_R6_OHM
+        for build_index, build in enumerate(builds)
+    ]
+    expected = {(feedback, r6, build_index)
+                for feedback in BROADBAND_GAIN_FEEDBACK_OHM
+                for r6 in BROADBAND_R6_OHM
+                for build_index in range(samples+1)}
+    rows: dict[tuple[float, float], list[BroadbandBuildResult]] = {
+        (feedback, r6): [] for feedback in BROADBAND_GAIN_FEEDBACK_OHM
+        for r6 in BROADBAND_R6_OHM
+    }
+    identities: list[tuple[float, float, int]] = []
+    results: list[BroadbandBuildResult] = []
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        for feedback, r6, build_index, _parts, result in executor.map(
+                _broadband_redesign_case, tasks, chunksize=1):
+            identity = (feedback, r6, build_index)
+            identities.append(identity)
+            results.append(result)
+            rows[(feedback, r6)].append(result)
+    require_complete_broadband_campaign(identities, expected, results, phase_steps)
+    table = Table(title="Broadband redesign — wet electrode to speaker current")
+    table.add_column("Gain feedback / R6")
+    table.add_column("Coverage", justify="right")
+    table.add_column("Worst wanted", justify="right")
+    table.add_column("59/60/61 rejection", justify="right")
+    table.add_column("Worst delay", justify="right")
+    table.add_column("Finding")
+    feasible: list[tuple[float, float]] = []
+    for feedback in BROADBAND_GAIN_FEEDBACK_OHM:
+        for r6 in BROADBAND_R6_OHM:
+            cases = rows[(feedback, r6)]
+            frequency_rows = [item for case in cases for item in case.frequencies]
+            wanted_ratio = min(item.modulation_to_carrier for item in frequency_rows
+                               if item.purpose == "wanted")
+            by_frequency = {frequency: [item for item in frequency_rows
+                                        if item.frequency_hz == frequency]
+                            for frequency in (59.0, 60.0, 61.0)}
+            reference = min(item.transfer_gain for item in frequency_rows
+                            if item.frequency_hz == 10.0)
+            rejection = [20*math.log10(max(reference, 1e-30)/max(
+                max(item.transfer_gain for item in by_frequency[frequency]), 1e-30))
+                         for frequency in (59.0, 60.0, 61.0)]
+            delay = max(item.delay_s for item in frequency_rows
+                        if item.purpose == "wanted" and item.frequency_hz >= 4)
+            failures = [failure for case in cases for failure in case.failures]
+            table.add_row(
+                f"{feedback/1e3:g}k / {r6/1e3:g}k",
+                f"{samples+1} × {phase_steps} × {len(BROADBAND_WANTED_HZ+BROADBAND_REJECTION_HZ)}",
+                f"{wanted_ratio:.3%}", "/".join(f"{value:.1f}" for value in rejection)+" dB",
+                f"{delay*1e3:.1f} ms", failures[0] if failures else "all modeled gates pass",
+            )
+            if not failures:
+                feasible.append((feedback, r6))
+    console.print(table)
+    frequency_table = Table(title="Per-frequency reporting (worst across every candidate/build)")
+    frequency_table.add_column("Frequency")
+    frequency_table.add_column("Purpose")
+    frequency_table.add_column("Gain", justify="right")
+    frequency_table.add_column("Delay", justify="right")
+    frequency_table.add_column("Speaker modulation", justify="right")
+    for frequency in sorted(set(BROADBAND_WANTED_HZ+BROADBAND_SLOW_HZ+BROADBAND_REJECTION_HZ)):
+        items = [item for result in results for item in result.frequencies
+                 if item.frequency_hz == frequency]
+        purpose = items[0].purpose
+        modulation = [item.speaker_modulation_rms_a for item in items
+                      if item.speaker_modulation_rms_a is not None]
+        frequency_table.add_row(
+            f"{frequency:g} Hz", purpose, f"{min(item.transfer_gain for item in items):.5g}",
+            f"{max(item.delay_s for item in items)*1e3:.2f} ms",
+            "AC-only" if not modulation else f"{min(modulation)*1e6:.3f} µA RMS",
+        )
+    console.print(frequency_table)
+    console.print(
+        "Model boundaries: slow 0.1–0.5 Hz rows are AC characterization only; "
+        "the notch Q and op-amps are behavioral; LM386 nonlinear recovery and "
+        "real electrode-to-speaker behavior remain isolated-bench gated."
+    )
+    require(feasible, "no gain-feedback/R6 combination passes every identical complete-path gate")
+    require(False, "hardware selection remains closed pending device-level notch coverage and isolated bench validation")
 
 
 @app.command("simulate-sonification-frontier")
