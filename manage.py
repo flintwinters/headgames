@@ -53,6 +53,7 @@ from inventory import (
     read_inventory,
     synthesize_mfb,
 )
+from ti_model_translation import TRANSLATOR_REVISION, translate_ti_lmx58
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -60,6 +61,8 @@ console = Console()
 PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
 BOM = PROJECT_ROOT / "headgames_bom.csv"
+TI_MODEL = PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib"
+TI_NGSPICE_MODEL = PROJECT_ROOT / "models" / "ngspice" / "lmx58_lm2904.lib"
 
 LM324_ACQUISITION = AmplifierLimits(
     "LM324N acquisition", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.5e6,
@@ -1078,6 +1081,10 @@ def require_spice_models() -> None:
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         require(actual == digest,
                 f"SPICE model hash is not locked or mismatched: {path.name}")
+    expected_translation = translate_ti_lmx58(TI_MODEL.read_text(encoding="utf-8"))
+    require(TI_NGSPICE_MODEL.is_file(), "translated TI ngspice model is missing")
+    require(TI_NGSPICE_MODEL.read_text(encoding="utf-8") == expected_translation,
+            f"translated TI model is stale; regenerate with {TRANSLATOR_REVISION}")
 
 
 def generate_filter_spice_deck() -> Path:
@@ -1160,9 +1167,48 @@ XU plus minus vcc 0 out HG_LMX24_LMX58_NOMINAL
     return dc_error
 
 
+def spice_ti_translation_smoke() -> tuple[float, float]:
+    """Instantiate the translated TI model and check its nominal DC contract."""
+    require_spice_models()
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    deck = output_dir / "ti_translation_dc.cir"
+    deck.write_text(f"""Headgames translated TI LM358 DC characterization
+.include {TI_NGSPICE_MODEL.resolve()}
+VCC vcc 0 9
+VIN plus 0 4.5
+XU plus out vcc 0 out LMX58_LM2904
+RL out 0 10k
+.op
+.print op v(plus) v(out) i(VCC)
+.end
+""", encoding="utf-8")
+    completed = subprocess.run(["ngspice", "-b", str(deck)], cwd=deck.parent,
+                               check=False, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace")
+    require(completed.returncode == 0,
+            f"translated TI model rejected by ngspice: {(completed.stderr or completed.stdout)[-800:]}")
+    rows = []
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) == 4 and fields[0].isdigit():
+            try:
+                rows.append(tuple(float(value) for value in fields[1:]))
+            except ValueError:
+                continue
+    require(len(rows) == 1, "translated TI DC characterization produced no operating point")
+    input_v, output_v, supply_a = rows[0]
+    require(abs(output_v - input_v) <= 20e-3,
+            f"translated TI follower DC error is {output_v-input_v:.6g} V")
+    require(0.1e-3 <= abs(supply_a) <= 2e-3,
+            f"translated TI quiescent supply current is {supply_a:.6g} A")
+    return output_v - input_v, abs(supply_a)
+
+
 def spice_filter_ac_crosscheck() -> tuple[float, float, float]:
     """Return nominal-model DC error and worst Python/SPICE AC errors."""
     require_spice_models()
+    spice_ti_translation_smoke()
     dc_error = spice_nominal_model_dc_crosscheck()
     deck = generate_filter_spice_deck()
     completed = subprocess.run(["ngspice", "-b", str(deck)], cwd=deck.parent,
@@ -1537,6 +1583,23 @@ def synthesize_mfb_command() -> None:
     _, values = schematic_data()
     verify_inventory_synthesis(values)
     print_inventory_synthesis(values)
+
+
+@app.command("translate-ti-model")
+def translate_ti_model_command() -> None:
+    """Regenerate the narrow ngspice translation from the hash-locked TI source."""
+    TI_NGSPICE_MODEL.parent.mkdir(parents=True, exist_ok=True)
+    TI_NGSPICE_MODEL.write_text(
+        translate_ti_lmx58(TI_MODEL.read_text(encoding="utf-8")), encoding="utf-8"
+    )
+    console.print(f"Generated {TI_NGSPICE_MODEL.relative_to(PROJECT_ROOT)} using {TRANSLATOR_REVISION}.")
+
+
+@app.command("characterize-ti-model")
+def characterize_ti_model_command() -> None:
+    """Run the first fail-closed translated-TI behavioral contract."""
+    error, current = spice_ti_translation_smoke()
+    console.print(f"Translated TI follower error: {error*1e3:.3f} mV; supply current: {current*1e3:.3f} mA.")
 
 
 @app.command("compare-physical-frontier")
