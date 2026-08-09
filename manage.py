@@ -63,6 +63,7 @@ from sonification import (
     BROADBAND_WANTED_HZ,
     CANDIDATES,
     BroadbandBuildResult,
+    BroadbandFrequencyResult,
     BroadbandParts,
     ChannelParts,
     MfbParts,
@@ -817,7 +818,15 @@ def verify_broadband_integrity(values: dict[str, str]) -> None:
             "independent notch resistors moved together")
     require(left.notch_c1_f != left.notch_c2_f,
             "independent notch capacitors moved together")
-    fake = BroadbandBuildResult(tuple(range(4)), tuple(), 700, 0.5, 1, 0, False, False, ())
+    fake_rows = tuple(
+        # Endpoint values are irrelevant here; this fixture tests identities.
+        BroadbandFrequencyResult(
+            frequency, ("wanted" if frequency in BROADBAND_WANTED_HZ else
+                        "slow AC only" if frequency in BROADBAND_SLOW_HZ else "rejection"),
+            1.0, 0.0, None, None)
+        for frequency in BROADBAND_WANTED_HZ+BROADBAND_SLOW_HZ+BROADBAND_REJECTION_HZ
+    )
+    fake = BroadbandBuildResult(tuple(range(4)), fake_rows, 700, 0.5, 1, 0, False, False, ())
     try:
         require_complete_broadband_campaign([(390e3, 47e3, 0), (390e3, 47e3, 0)],
                                             {(390e3, 47e3, 0)}, [fake, fake], 4)
@@ -825,6 +834,14 @@ def verify_broadband_integrity(values: dict[str, str]) -> None:
         pass
     else:
         raise VerificationError("duplicate campaign deliberately passed")
+    incomplete = replace(fake, frequencies=fake.frequencies[:-1])
+    try:
+        require_complete_broadband_campaign([(390e3, 47e3, 0)],
+                                            {(390e3, 47e3, 0)}, [incomplete], 4)
+    except VerificationError:
+        pass
+    else:
+        raise VerificationError("incomplete frequency report deliberately passed")
 
 
 def active_electrode_channels(electrode: str | None = None
