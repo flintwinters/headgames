@@ -7,6 +7,7 @@ import math
 import hashlib
 import os
 import random
+import re
 import shutil
 import subprocess
 from dataclasses import replace
@@ -1925,6 +1926,35 @@ def assert_core_signal_path_drawn_explicitly() -> None:
             + ", ".join(sorted(hidden_path_labels)))
 
 
+def assert_no_overlapping_wire_segments() -> None:
+    """Reject collinear wire objects whose interiors overlap."""
+    schematic = SCHEMATIC.read_text()
+    segments = [
+        tuple(float(value) for value in match)
+        for match in re.findall(
+            r"\(wire\s+\(pts\s+\(xy\s+([\d.]+)\s+([\d.]+)\)\s+"
+            r"\(xy\s+([\d.]+)\s+([\d.]+)\)",
+            schematic,
+        )
+    ]
+    overlaps: list[tuple[tuple[float, ...], tuple[float, ...]]] = []
+    for index, first in enumerate(segments):
+        x1, y1, x2, y2 = first
+        for second in segments[index + 1:]:
+            x3, y3, x4, y4 = second
+            horizontal = y1 == y2 == y3 == y4
+            vertical = x1 == x2 == x3 == x4
+            if horizontal:
+                overlap = min(max(x1, x2), max(x3, x4)) - max(min(x1, x2), min(x3, x4))
+            elif vertical:
+                overlap = min(max(y1, y2), max(y3, y4)) - max(min(y1, y2), min(y3, y4))
+            else:
+                continue
+            if overlap > 0:
+                overlaps.append((first, second))
+    require(not overlaps, f"overlapping schematic wire segments: {overlaps}")
+
+
 @app.callback()
 def main() -> None:
     """Calculate and verify the documented circuit design."""
@@ -1956,6 +1986,7 @@ def test() -> None:
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
     assert_core_signal_path_drawn_explicitly()
+    assert_no_overlapping_wire_segments()
     assert_erc_clean()
     require_spice_models()
     require_frontier_alignment()
