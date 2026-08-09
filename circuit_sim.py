@@ -72,6 +72,56 @@ class ActiveElectrodeChannel:
     white_voltage_noise: float
 
 
+@dataclass(frozen=True)
+class CascadedBandpass:
+    """Identical unity-center-gain second-order band-pass sections."""
+
+    center_frequency_hz: float
+    section_q: float
+    stages: int
+
+    @classmethod
+    def from_cutoffs(
+        cls, low_hz: float, high_hz: float, stages: int = 2
+    ) -> CascadedBandpass:
+        """Synthesize equal-Q sections with -3 dB at reciprocal cutoffs."""
+        if low_hz <= 0 or high_hz <= low_hz or stages < 1:
+            raise ValueError("invalid band-pass specification")
+        center = math.sqrt(low_hz * high_hz)
+        frequency_ratio = low_hz / center
+        section_magnitude_squared = 2 ** (-1 / stages)
+        reactance_term = 1 - frequency_ratio**2
+        normalized_numerator = math.sqrt(
+            section_magnitude_squared
+            * reactance_term**2
+            / (1 - section_magnitude_squared)
+        )
+        section_q = frequency_ratio / normalized_numerator
+        return cls(center, section_q, stages)
+
+    def transfer(
+        self,
+        frequency_hz: float,
+        center_scales: tuple[float, ...] | None = None,
+        q_scales: tuple[float, ...] | None = None,
+    ) -> complex:
+        """Return cascade transfer with optional per-section coefficient errors."""
+        center_scales = center_scales or (1.0,) * self.stages
+        q_scales = q_scales or (1.0,) * self.stages
+        if len(center_scales) != self.stages or len(q_scales) != self.stages:
+            raise ValueError("one center and Q scale is required per section")
+        result = 1 + 0j
+        for center_scale, q_scale in zip(center_scales, q_scales, strict=True):
+            normalized = (
+                1j * frequency_hz / (self.center_frequency_hz * center_scale)
+            )
+            section_q = self.section_q * q_scale
+            result *= (normalized / section_q) / (
+                normalized**2 + normalized / section_q + 1
+            )
+        return result
+
+
 def parallel(left: complex, right: complex) -> complex:
     """Return the impedance of two parallel branches."""
     return left * right / (left + right)

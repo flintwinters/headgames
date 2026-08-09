@@ -62,6 +62,16 @@ and source-impedance problem, not the project-survival motion/selectivity
 problem. A physical version must place both independent safety resistors ahead
 of each electrode-site buffer and keep its entire worn supply isolated.
 
+`manage.py simulate-sharper-filter` tests two unity-center-gain second-order
+band-pass sections before the detector: 9.798 Hz center, Q=1.576 per section,
+and ideal combined 8-12 Hz -3 dB limits. It passes the survival fixture: alpha
+changes mean `ENV` by 565% with passive electrodes and 1,046% with active
+electrodes; independent +/-2% center and +/-5% Q section corners remain above
+502% and 908%. This establishes sharper selectivity as the leading fix, but the
+model is not yet a buildable filter: synthesize physical passives and include
+their tolerances, added noise, headroom, and overload recovery before changing
+the authoritative schematic.
+
 Acquisition impedance ratios are assembly invariants. Pair-match `R12/R22`
 (10 MΩ), `C11/C15` (nominally 1.5 nF), `C12/C14` (100 nF), and `R15/R21`
 (the reserved measured 474 kΩ pair). Inventory lacks 1.5 nF capacitors; the
@@ -85,8 +95,8 @@ medical device.
   feedback networks in the authoritative schematic after inventory confirmation.
 - Reproduce the artifact fixture with an isolated physical EEG phantom and
   determine whether alpha remains distinguishable under electrode imbalance.
-- Model the smallest sharper-filter candidate against both passive and active
-  electrode fixtures before selecting or wiring an electrode buffer.
+- Synthesize the passing two-biquad filter into a one-dual-op-amp physical
+  network, then model passive tolerances, noise, headroom, and overload recovery.
 - Bench-validate power, VREF, carrier/audio, differential response, filtering,
   and envelope behavior with no person connected.
 - Validate isolated-supply physiological pickup: artifacts first, then repeated

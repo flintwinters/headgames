@@ -31,6 +31,7 @@ Run the frequency-domain circuit simulation with:
 python3 manage.py simulate-eeg
 python3 manage.py simulate-artifacts
 python3 manage.py simulate-active-electrodes
+python3 manage.py simulate-sharper-filter
 ```
 
 The simulator extracts every circuit component value from the KiCad schematic
@@ -84,6 +85,22 @@ safety resistors to the electrode-side module, ahead of its buffer. Leaving
 them at the central board would put powered circuitry between the electrode and
 the protection. The complete worn buffer supply and every attached conductor
 remain subject to the isolated-battery-only rule.
+
+The sharper-filter command tests the planned one-dual-op-amp fix as two
+unity-center-gain second-order band-pass sections. The sections are synthesized
+for a 9.798 Hz geometric center, Q=1.576 each, and an ideal combined -3 dB span
+of 8-12 Hz. The same passive and active project-survival fixtures feed the new
+filter before the existing 0.22 s detector.
+
+The hypothesis passes in this model. With passive electrodes, filtered 2 Hz,
+30 Hz, and 60 Hz peaks are 15 mV, 3 mV, and 7.682 mV while 10 Hz alpha remains
+110 mV; alpha changes mean `ENV` by 565%. With active electrodes, those values
+are 18 mV, 5 mV, 49 uV, and 173 mV, producing a 1,046% envelope change. All
+independent per-section corners at +/-2% center frequency and +/-5% Q remain
+above 502% passive and 908% active. This validates filter selectivity as an
+architectural hypothesis, not a finished circuit: physical resistor/capacitor
+synthesis, real correlated component tolerances, added filter noise, op-amp
+limits, saturation, and overload recovery remain to be modeled and measured.
 
 ## Matched acquisition components
 

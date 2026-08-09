@@ -14,7 +14,9 @@ from rich.table import Table
 
 from circuit_sim import (
     ActiveElectrodeChannel,
+    CascadedBandpass,
     EegPathComponents,
+    EnvelopeResult,
     SignalTone,
     active_electrode_output_noise_rms,
     logarithmic_sweep,
@@ -549,6 +551,153 @@ def print_active_electrode_simulation(values: dict[str, str]) -> None:
     )
 
 
+def planned_sharper_filter() -> CascadedBandpass:
+    """Return the planned two-biquad, unity-center-gain 8-12 Hz filter."""
+    return CascadedBandpass.from_cutoffs(8.0, 12.0, stages=2)
+
+
+def filtered_outputs(
+    outputs: tuple[tuple[float, complex], ...],
+    bandpass: CascadedBandpass,
+    center_scales: tuple[float, ...] | None = None,
+    q_scales: tuple[float, ...] | None = None,
+) -> tuple[tuple[float, complex], ...]:
+    """Apply the planned post-ALPHA filter to solved spectral contributions."""
+    return tuple(
+        (
+            frequency,
+            output * bandpass.transfer(frequency, center_scales, q_scales),
+        )
+        for frequency, output in outputs
+    )
+
+
+def envelope_alpha_change(
+    artifacts: tuple[tuple[float, complex], ...],
+    with_alpha: tuple[tuple[float, complex], ...],
+    release_seconds: float,
+) -> tuple[float, EnvelopeResult, EnvelopeResult]:
+    """Return relative mean-envelope change and both detector results."""
+    artifact_envelope = simulate_peak_detector(artifacts, release_seconds)
+    alpha_envelope = simulate_peak_detector(with_alpha, release_seconds)
+    relative_change = (
+        alpha_envelope.mean_v - artifact_envelope.mean_v
+    ) / artifact_envelope.mean_v
+    return relative_change, artifact_envelope, alpha_envelope
+
+
+def assert_sharper_filter_simulation(values: dict[str, str]) -> None:
+    """Require the planned filter to rescue both project-survival fixtures."""
+    bandpass = planned_sharper_filter()
+    assert math.isclose(abs(bandpass.transfer(bandpass.center_frequency_hz)), 1.0)
+    assert math.isclose(magnitude_db(bandpass.transfer(8.0)), -3.0103, abs_tol=0.01)
+    assert math.isclose(magnitude_db(bandpass.transfer(12.0)), -3.0103, abs_tol=0.01)
+    assert 1.5 <= bandpass.section_q <= 1.7
+
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    architectures = (
+        (artifact_fixture_outputs(values, False), artifact_fixture_outputs(values, True)),
+        (
+            active_artifact_fixture_outputs(values, False),
+            active_artifact_fixture_outputs(values, True),
+        ),
+    )
+    for artifacts, with_alpha in architectures:
+        # The added filter cannot recover an upstream stage that has clipped.
+        # Bound the sum of simultaneous ALPHA peaks against conservative headroom.
+        assert sum(abs(output) for _, output in with_alpha) < 3.0
+        relative_change, _, _ = envelope_alpha_change(
+            filtered_outputs(artifacts, bandpass),
+            filtered_outputs(with_alpha, bandpass),
+            release,
+        )
+        assert relative_change >= 0.25, (
+            f"planned filter does not distinguish alpha: {relative_change:.1%}"
+        )
+        for center_signs in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+            for q_signs in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+                center_scales = tuple(1 + 0.02 * sign for sign in center_signs)
+                q_scales = tuple(1 + 0.05 * sign for sign in q_signs)
+                corner_change, _, _ = envelope_alpha_change(
+                    filtered_outputs(artifacts, bandpass, center_scales, q_scales),
+                    filtered_outputs(with_alpha, bandpass, center_scales, q_scales),
+                    release,
+                )
+                assert corner_change >= 0.25, (
+                    f"filter coefficient corner fails: {corner_change:.1%}"
+                )
+
+
+def print_sharper_filter_simulation(values: dict[str, str]) -> None:
+    """Report the planned filter's effect on passive and active fixtures."""
+    bandpass = planned_sharper_filter()
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    table = Table(title="Planned two-biquad 8-12 Hz filter")
+    table.add_column("Architecture")
+    table.add_column("2 Hz", justify="right")
+    table.add_column("30 Hz", justify="right")
+    table.add_column("60 Hz", justify="right")
+    table.add_column("10 Hz alpha", justify="right")
+    table.add_column("ENV alpha change", justify="right")
+
+    architecture_outputs = (
+        (
+            "Passive electrodes",
+            artifact_fixture_outputs(values, False),
+            artifact_fixture_outputs(values, True),
+        ),
+        (
+            "Active electrodes",
+            active_artifact_fixture_outputs(values, False),
+            active_artifact_fixture_outputs(values, True),
+        ),
+    )
+    for label, artifacts, with_alpha in architecture_outputs:
+        filtered_artifacts = filtered_outputs(artifacts, bandpass)
+        filtered_with_alpha = filtered_outputs(with_alpha, bandpass)
+        relative_change, artifact_envelope, alpha_envelope = envelope_alpha_change(
+            filtered_artifacts, filtered_with_alpha, release
+        )
+        corner_changes = []
+        for center_signs in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+            for q_signs in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+                center_scales = tuple(1 + 0.02 * sign for sign in center_signs)
+                q_scales = tuple(1 + 0.05 * sign for sign in q_signs)
+                corner_change, _, _ = envelope_alpha_change(
+                    filtered_outputs(artifacts, bandpass, center_scales, q_scales),
+                    filtered_outputs(with_alpha, bandpass, center_scales, q_scales),
+                    release,
+                )
+                corner_changes.append(corner_change)
+        peaks = [abs(output) for _, output in filtered_with_alpha]
+        table.add_row(
+            label,
+            f"{peaks[0]:.3f} V",
+            f"{peaks[1]:.3f} V",
+            f"{peaks[2]:.6f} V",
+            f"{peaks[3]:.3f} V",
+            f"{relative_change:.0%} (corner {min(corner_changes):.0%})",
+        )
+        table.add_row(
+            "  mean ENV",
+            "",
+            "",
+            f"artifacts {artifact_envelope.mean_v:.3f} V",
+            f"+ alpha {alpha_envelope.mean_v:.3f} V",
+            "PASS" if relative_change >= 0.25 else "FAIL",
+        )
+    console.print(table)
+    console.print(
+        f"Synthesized center: {bandpass.center_frequency_hz:.3f} Hz; "
+        f"two identical sections at Q={bandpass.section_q:.3f}; unity gain at center."
+    )
+    console.print(
+        "[yellow]Scope:[/yellow] ideal biquads plus independent +/-2% center and "
+        "+/-5% Q coefficient corners; physical component mapping, op-amp limits, "
+        "added noise, and overload recovery are not yet included."
+    )
+
+
 def assert_precision_detector(
     nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
 ) -> None:
@@ -662,6 +811,7 @@ def test() -> None:
     assert_eeg_simulation(values)
     assert_artifact_simulation(values)
     assert_active_electrode_simulation(values)
+    assert_sharper_filter_simulation(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -691,6 +841,14 @@ def simulate_active_electrodes() -> None:
     _, values = schematic_data()
     assert_active_electrode_simulation(values)
     print_active_electrode_simulation(values)
+
+
+@app.command("simulate-sharper-filter")
+def simulate_sharper_filter() -> None:
+    """Test the planned dual-biquad fix against both artifact fixtures."""
+    _, values = schematic_data()
+    assert_sharper_filter_simulation(values)
+    print_sharper_filter_simulation(values)
 
 
 if __name__ == "__main__":
