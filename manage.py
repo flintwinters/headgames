@@ -10,6 +10,14 @@ from xml.etree import ElementTree
 
 import typer
 from rich.console import Console
+from rich.table import Table
+
+from circuit_sim import (
+    EegPathComponents,
+    logarithmic_sweep,
+    magnitude_db,
+    simulate_ac,
+)
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -175,6 +183,85 @@ def assert_eeg_signal_path(
     )
 
 
+def eeg_path_model(
+    values: dict[str, str], hp_trim_fraction: float = 0.5, lp_trim_fraction: float = 0.5
+) -> EegPathComponents:
+    """Build the simulator model from authoritative schematic values."""
+    return EegPathComponents(
+        # 20 kohm is a stated, conservative dry-electrode source assumption;
+        # unlike every value below, it is not a schematic component.
+        electrode_resistance=20_000.0,
+        safety_resistance=resistance(values["R16"]) + resistance(values["R14"]),
+        input_resistance=resistance(values["R15"]),
+        input_capacitance=capacitance(values["C12"]),
+        diff_feedback_resistance=resistance(values["R12"]),
+        diff_feedback_capacitance=capacitance(values["C11"]),
+        alpha_input_resistance=(
+            resistance(values["R17"])
+            + hp_trim_fraction * resistance(values["RV1"])
+        ),
+        alpha_input_capacitance=capacitance(values["C13"]),
+        alpha_feedback_resistance=(
+            resistance(values["R23"])
+            + lp_trim_fraction * resistance(values["RV2"])
+        ),
+        alpha_feedback_capacitance=capacitance(values["C16"]),
+    )
+
+
+def assert_eeg_simulation(values: dict[str, str]) -> None:
+    """Regression-check realistic small-signal behavior at all trim corners."""
+    for hp_fraction in (0.0, 0.5, 1.0):
+        for lp_fraction in (0.0, 0.5, 1.0):
+            model = eeg_path_model(values, hp_fraction, lp_fraction)
+            sweep = logarithmic_sweep(model)
+            peak = max(sweep, key=lambda point: abs(point.total_gain))
+            assert 7.2 <= peak.frequency_hz <= 7.9, (
+                f"unexpected response peak: {peak.frequency_hz:.2f} Hz"
+            )
+            assert 2_300 <= abs(peak.total_gain) <= 2_850, (
+                f"unexpected peak gain: {abs(peak.total_gain):.1f} V/V"
+            )
+
+    nominal = eeg_path_model(values)
+    gain_10_hz = abs(simulate_ac(nominal, 10.0).total_gain)
+    assert 2_300 <= gain_10_hz <= 2_500
+    # 200 uV peak is the high end of the documented alpha fixture.  It must
+    # remain comfortably inside the roughly 1.5 V positive LM324 headroom on 9 V.
+    assert 200e-6 * gain_10_hz < 0.75
+
+
+def print_eeg_simulation(values: dict[str, str]) -> None:
+    """Print nominal AC response and EEG-scale signal predictions."""
+    model = eeg_path_model(values)
+    sweep = logarithmic_sweep(model)
+    peak = max(sweep, key=lambda point: abs(point.total_gain))
+    table = Table(title="EEG path AC simulation (trimmers at midpoint)")
+    table.add_column("Input")
+    table.add_column("Frequency", justify="right")
+    table.add_column("Gain", justify="right")
+    table.add_column("ALPHA peak", justify="right")
+    for amplitude_uv, frequency_hz in ((10, 10), (20, 10), (50, 10), (100, 10), (50, 8), (50, 12)):
+        result = simulate_ac(model, frequency_hz)
+        gain = abs(result.total_gain)
+        table.add_row(
+            f"{amplitude_uv} uV peak",
+            f"{frequency_hz:.0f} Hz",
+            f"{gain:.0f} V/V ({magnitude_db(result.total_gain):.1f} dB)",
+            f"{amplitude_uv * 1e-6 * gain:.3f} V",
+        )
+    console.print(table)
+    console.print(
+        f"Response peak: [bold]{peak.frequency_hz:.2f} Hz[/bold] at "
+        f"{abs(peak.total_gain):.0f} V/V; assumed electrode source resistance: "
+        "20 kohm per differential source."
+    )
+    console.print(
+        "[yellow]Interpretation:[/yellow] the cascaded response peaks below 8 Hz; "
+        "the RC corner labels do not make this a sharply selective 8-12 Hz filter."
+    )
+
+
 def assert_precision_detector(
     nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
 ) -> None:
@@ -285,11 +372,20 @@ def test() -> None:
     assert_audio_drive_bounded(values)
     assert_audio_output_stabilized(nets, values)
     assert_eeg_signal_path(nets, values)
+    assert_eeg_simulation(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
     console.print("[green]Schematic connectivity checks passed.[/green]")
+
+
+@app.command("simulate-eeg")
+def simulate_eeg() -> None:
+    """Simulate the small-signal electrode-to-ALPHA response."""
+    _, values = schematic_data()
+    assert_eeg_simulation(values)
+    print_eeg_simulation(values)
 
 
 if __name__ == "__main__":
