@@ -9,6 +9,8 @@ import os
 import random
 import shutil
 import subprocess
+from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -55,12 +57,13 @@ from inventory import (
 )
 from sonification import (
     CANDIDATES,
-    CandidateMetrics,
-    mfb_multiplier,
-    pareto_knee,
+    ChannelParts,
+    MfbParts,
+    SonificationBuild,
+    closed_form_group_delay,
+    group_delay as sonification_group_delay,
     relaxation_frequency,
-    simulate_oscillator,
-    worst_alpha_group_delay,
+    simulate_build,
 )
 
 
@@ -499,77 +502,136 @@ def frontier_artifact_fixture_outputs(
     )
 
 
-def sonification_candidate_metrics(
-    values: dict[str, str], candidate_name: str, electrode: str = "wet",
-) -> tuple[CandidateMetrics, float]:
-    """Evaluate one continuous-time weighting family at the speaker control."""
-    candidate = next((item for item in CANDIDATES if item.name == candidate_name), None)
-    require(candidate is not None, f"unknown sonification candidate: {candidate_name}")
-    model = eeg_path_model(values)
-    outputs = dict(frontier_artifact_fixture_outputs(values, True, electrode))
+@lru_cache(maxsize=4)
+def cached_mfb_synthesis(value_items: tuple[tuple[str, str], ...]):
+    """Avoid repeating the deterministic inventory search per physical build."""
+    values = dict(value_items)
+    return synthesize_mfb(read_inventory(BOM, values))
 
-    def weighting(frequency_hz: float) -> complex:
-        optional = mfb_multiplier(candidate, frequency_hz)
-        if candidate.name == "broadband":
-            alpha = simulate_ac(model, frequency_hz).alpha_gain
-            return optional / alpha
-        return optional
 
-    alpha = abs(outputs[10.0] * weighting(10.0))
-    artifact = math.sqrt(sum(
-        abs(outputs[frequency] * weighting(frequency))**2
-        for frequency in (2.0, 30.0, 60.0)
-    ))
-    ratio = alpha / max(artifact, 1e-15)
-    delay = worst_alpha_group_delay(
-        lambda frequency: simulate_ac(model, frequency).total_gain * weighting(frequency)
+def nominal_sonification_build(values: dict[str, str], electrode: str = "wet"
+                               ) -> SonificationBuild:
+    """Materialize every part exercised by the end-to-end transient."""
+    synthesis = cached_mfb_synthesis(tuple(sorted(values.items())))
+    stage = MfbParts(synthesis.r1.nominal, synthesis.r2.nominal,
+                     synthesis.r5.nominal, 100e-9, 100e-9)
+    profile = electrode_profile(electrode)
+    mismatch = 1.10 if electrode == "wet" else 1.22
+    meas = ChannelParts(profile.series_resistance_ohm,
+                        profile.charge_transfer_resistance_ohm,
+                        profile.interface_capacitance_f, 5e-12, 1_000_000.0, 40e-9,
+                        resistance(values["R16"]), resistance(values["R14"]),
+                        resistance(values["R15"]), capacitance(values["C12"]),
+                        resistance(values["R12"]), capacitance(values["C11"]),
+                        8_200.0, 150e-12)
+    ref = ChannelParts(profile.series_resistance_ohm*mismatch,
+                       profile.charge_transfer_resistance_ohm*mismatch,
+                       profile.interface_capacitance_f/mismatch, 5e-12, 1_000_000.0, 40e-9,
+                       resistance(values["R19"]), resistance(values["R20"]),
+                       resistance(values["R21"]), capacitance(values["C14"]),
+                       resistance(values["R22"]), capacitance(values["C15"]),
+                       8_200.0, 250e-12)
+    return SonificationBuild(
+        meas, ref, resistance(values["R17"])+0.5*resistance(values["RV1"]),
+        capacitance(values["C13"]),
+        resistance(values["R23"])+0.5*resistance(values["RV2"]),
+        capacitance(values["C16"]), (stage, stage),
+        resistance(values["R3"]), resistance(values["R4"]),
+        resistance(values["R6"]), resistance(values["R9"]),
+        capacitance(values["C10"]), resistance(values["R5"]),
+        resistance(values["R8"]), capacitance(values["C5"]),
+        capacitance(values["C6"]), resistance(values["R10"]),
+        capacitance(values["C7"]), 9.0,
     )
-    oscillator = simulate_oscillator(alpha)
-    require(300 <= oscillator.frequency_hz <= 1500,
-            f"{candidate.name}: oscillator left 300-1500 Hz")
-    require(0.10 <= oscillator.duty_cycle <= 0.90,
-            f"{candidate.name}: oscillator duty cycle is {oscillator.duty_cycle:.1%}")
-    require(not oscillator.latched, f"{candidate.name}: oscillator latched")
-    require(not oscillator.clipped, f"{candidate.name}: LM386 behavioral output clipped")
-    require(oscillator.minimum_node_margin_v >= 0.250,
-            f"{candidate.name}: oscillator node margin is below 250 mV")
-    require(oscillator.speaker_rms_a <= 0.125,
-            f"{candidate.name}: speaker RMS current exceeds behavioral bound")
-    return CandidateMetrics(candidate, delay, ratio), oscillator.sideband_peak_a / max(
-        oscillator.carrier_peak_a, 1e-15
+
+
+def sampled_sonification_build(values: dict[str, str], electrode: str,
+                               rng: random.Random) -> SonificationBuild:
+    """Move every declared physical leaf independently for one build."""
+    nominal = nominal_sonification_build(values, electrode)
+    def move(value: float, tolerance: float) -> float:
+        return value*(1+rng.uniform(-tolerance, tolerance))
+    def channel(item: ChannelParts) -> ChannelParts:
+        return replace(
+            item,
+            safety_a_ohm=move(item.safety_a_ohm, 0.05),
+            safety_b_ohm=move(item.safety_b_ohm, 0.05),
+            input_ohm=move(item.input_ohm, 0.01),
+            input_f=move(item.input_f, 0.10),
+            feedback_ohm=move(item.feedback_ohm, 0.01),
+            feedback_f=move(item.feedback_f, 0.10),
+            cable_isolation_ohm=move(item.cable_isolation_ohm, 0.05),
+        )
+    synthesis = cached_mfb_synthesis(tuple(sorted(values.items())))
+    stages = []
+    for _ in range(2):
+        stages.append(MfbParts(
+            synthesis.r1.sample(rng), synthesis.r2.sample(rng),
+            synthesis.r5.sample(rng), move(100e-9, 0.10), move(100e-9, 0.10),
+        ))
+    return replace(
+        nominal, meas=channel(nominal.meas), ref=channel(nominal.ref),
+        alpha_input_ohm=move(nominal.alpha_input_ohm, 0.05),
+        alpha_input_f=move(nominal.alpha_input_f, 0.10),
+        alpha_feedback_ohm=move(nominal.alpha_feedback_ohm, 0.05),
+        alpha_feedback_f=move(nominal.alpha_feedback_f, 0.10),
+        mfb=tuple(stages), r3_ohm=move(nominal.r3_ohm, 0.05),
+        r4_ohm=move(nominal.r4_ohm, 0.05), r6_ohm=move(nominal.r6_ohm, 0.05),
+        r9_ohm=move(nominal.r9_ohm, 0.01), c10_f=move(nominal.c10_f, 0.10),
+        r5_audio_ohm=move(nominal.r5_audio_ohm, 0.05),
+        r8_audio_ohm=move(nominal.r8_audio_ohm, 0.05),
+        c5_audio_f=move(nominal.c5_audio_f, 0.10),
+        c6_output_f=move(nominal.c6_output_f, 0.10),
+        r10_zobel_ohm=move(nominal.r10_zobel_ohm, 0.05),
+        c7_zobel_f=move(nominal.c7_zobel_f, 0.10),
+        supply_v=rng.uniform(8.8, 9.2),
     )
 
 
-def sonification_frontier(values: dict[str, str], electrode: str = "wet"
-) -> tuple[CandidateMetrics, ...]:
-    """Return the feasible nondominated fixed-family frontier and knee first."""
-    feasible = []
-    for candidate in CANDIDATES:
-        metrics, sideband = sonification_candidate_metrics(values, candidate.name, electrode)
-        if sideband >= 0.01:
-            feasible.append(metrics)
-    require(feasible, "no candidate produces at least 1% carrier-sideband modulation")
-    return pareto_knee(tuple(feasible))
-
-
-def print_sonification(values: dict[str, str], candidate_name: str,
-                       electrode: str) -> None:
-    metrics, sideband = sonification_candidate_metrics(values, candidate_name, electrode)
-    alpha = abs(dict(frontier_artifact_fixture_outputs(values, True, electrode))[10.0]
-                 * mfb_multiplier(metrics.candidate, 10.0))
-    oscillator = simulate_oscillator(alpha)
-    table = Table(title=f"Instantaneous sonification — {candidate_name} / {electrode}")
+def print_sonification_result(candidate, result, build) -> None:
+    item = result.worst
+    delay = max(sonification_group_delay(build, candidate, frequency)
+                for frequency in (8.0, 9.0, 10.0, 11.0, 12.0))
+    table = Table(title=f"End-to-end speaker-current validation — {candidate.name}")
     table.add_column("Metric")
-    table.add_column("Result", justify="right")
-    table.add_row("Maximum 8-12 Hz group delay", f"{metrics.group_delay_s*1e3:.2f} ms")
-    table.add_row("Alpha/artifact speaker modulation", f"{metrics.modulation_ratio:.4f}")
-    table.add_row("Carrier", f"{oscillator.frequency_hz:.1f} Hz")
-    table.add_row("Duty cycle", f"{oscillator.duty_cycle:.1%}")
-    table.add_row("Carrier sideband", f"{sideband:.2%}")
-    table.add_row("Speaker RMS current", f"{oscillator.speaker_rms_a*1e3:.2f} mA")
-    table.add_row("Minimum oscillator node margin", f"{oscillator.minimum_node_margin_v:.3f} V")
-    table.add_row("Harmonics 1-5", " / ".join(f"{value*1e3:.2f}" for value in oscillator.harmonic_peak_a)+" mA")
+    table.add_column("Worst result", justify="right")
+    table.add_row("Phases actually executed", str(result.phases_executed))
+    table.add_row("Maximum 8-12 Hz group delay", f"{delay*1e3:.2f} ms")
+    table.add_row("Alpha/artifact speaker-current ratio", f"{item.modulation_ratio:.4f}")
+    table.add_row("Alpha modulation / carrier", f"{item.alpha_to_carrier:.2%}")
+    table.add_row("Carrier / duty", f"{item.frequency_hz:.1f} Hz / {item.duty_cycle:.1%}")
+    table.add_row("Burst onset t10 / t90", f"{item.onset_t10_s*1e3:.1f} / {item.onset_t90_s*1e3:.1f} ms")
+    table.add_row("Offset to 10%", f"{item.offset_t10_s*1e3:.1f} ms")
+    table.add_row("First changed carrier edge", f"{item.first_edge_latency_s*1e3:.1f} ms")
+    table.add_row("Speaker RMS current", f"{item.speaker_rms_a*1e3:.2f} mA")
+    table.add_row("LM386 peak output current", f"{item.peak_lm386_current_a*1e3:.2f} mA")
+    table.add_row("Minimum node margin", f"{item.minimum_node_margin_v:.3f} V")
+    table.add_row("Gate", result.first_failure or "PASS")
     console.print(table)
+
+
+def verify_sonification_integrity(values: dict[str, str]) -> None:
+    """Prove endpoint, phase, perturbation, and derivative contracts are real."""
+    build = nominal_sonification_build(values, "wet")
+    candidate = next(item for item in CANDIDATES if item.name == "alpha")
+    result = simulate_build(build, candidate, 4, noise_seed=0x54455354)
+    require(result.phases_executed == 4, "sonification phase count was not executed")
+    require(result.worst.speaker_rms_a > 0,
+            "sonification did not reach the speaker-current endpoint")
+    require(result.worst.alpha_modulation_rms_a > 0,
+            "alpha did not produce measured speaker-current modulation")
+    for frequency in (8.0, 10.0, 12.0):
+        numerical = sonification_group_delay(build, candidate, frequency)
+        exact = closed_form_group_delay(build, candidate, frequency)
+        require(abs(numerical-exact) <= 1e-7,
+                f"group-delay derivative mismatch at {frequency:g} Hz")
+    left = sampled_sonification_build(values, "wet", random.Random(0x53454544))
+    right = sampled_sonification_build(values, "wet", random.Random(0x53454544))
+    require(left == right, "physical sonification build is not deterministic")
+    require(left.meas.safety_a_ohm != left.meas.safety_b_ohm,
+            "independent safety-resistor leaves moved together")
+    require(left.mfb[0] != left.mfb[1],
+            "independent MFB stages moved together")
 
 
 def active_electrode_channels(electrode: str | None = None
@@ -1840,15 +1902,14 @@ def test() -> None:
     verify_electrode_profiles()
     verify_physical_filter_synthesis()
     verify_inventory_synthesis(values)
+    verify_sonification_integrity(values)
     threshold_low = (4.5 + 0.020 + 4.5) / 3
     threshold_high = (4.5 + 7.0 + 4.5) / 3
     expected_carrier = relaxation_frequency(100_000.0, 10e-9, 0.020, 7.0,
                                             threshold_low, threshold_high)
     require(500 <= expected_carrier <= 1_000,
             f"analytical carrier frequency is {expected_carrier:.1f} Hz")
-    nominal_oscillator = simulate_oscillator(0.1)
-    require(abs(nominal_oscillator.frequency_hz-expected_carrier)/expected_carrier < 0.15,
-            "stateful oscillator disagrees with its closed-form RC frequency")
+    require(math.isfinite(expected_carrier), "analytical oscillator frequency is not finite")
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -1885,24 +1946,25 @@ def accept() -> None:
     assert_eeg_signal_path(nets, values)
     assert_precision_detector(nets, values)
     require_frontier_alignment()
-    frontier = sonification_frontier(values, "wet")
-    require(frontier[0].candidate.name != "mfb2",
-            "two-MFB reference must not become a hardware candidate")
     console.print("[bold green]MODEL ACCEPTANCE PASS: every declared model gate passed.[/bold green]")
 
 
 @app.command("simulate-sonification")
 def simulate_sonification(
-    candidate: str = typer.Option("selected", help="selected|broadband|alpha|mfb1|mfb2"),
+    candidate: str = typer.Option(..., help="broadband|alpha|mfb1|mfb2"),
     electrode: str = typer.Option("wet", help="wet gating or dry informational profile"),
+    phase_steps: int = typer.Option(16, min=16),
 ) -> None:
-    """Report one zero-window continuous-time electrode-to-speaker path."""
+    """Run one nominal complete electrode-to-speaker-current experiment."""
     require(electrode in ("wet", "dry"), "electrode must be wet or dry")
     _, values = schematic_data()
-    if candidate == "selected":
-        candidate = sonification_frontier(values, electrode)[0].candidate.name
-    require(candidate in {item.name for item in CANDIDATES}, "unknown candidate")
-    print_sonification(values, candidate, electrode)
+    selected = next((item for item in CANDIDATES if item.name == candidate), None)
+    require(selected is not None, "unknown candidate")
+    build = nominal_sonification_build(values, electrode)
+    result = simulate_build(build, selected, phase_steps)
+    print_sonification_result(selected, result, build)
+    require(result.phases_executed == phase_steps, "not every requested phase executed")
+    require(result.first_failure is None, f"nominal sonification gate: {result.first_failure}")
     if electrode == "dry":
         console.print("[yellow]Dry-electrode verdict: INFORMATIONAL ONLY.[/yellow]")
 
@@ -1914,21 +1976,74 @@ def simulate_sonification_frontier(
     seed: int = typer.Option(0x48454144, min=0),
     phase_steps: int = typer.Option(16, min=16),
 ) -> None:
-    """Select the normalized Pareto knee of the fixed topology families."""
+    """Execute every physical build/phase and select only from passing paths."""
     require(electrode in ("wet", "dry"), "electrode must be wet or dry")
     _, values = schematic_data()
-    frontier = sonification_frontier(values, electrode)
-    table = Table(title=f"Continuous-time sonification Pareto frontier — {electrode}")
-    table.add_column("Candidate")
-    table.add_column("Worst 8-12 Hz delay", justify="right")
-    table.add_column("Alpha/artifact", justify="right")
-    table.add_column("Ideal distance", justify="right")
-    for item in frontier:
-        table.add_row(item.candidate.name, f"{item.group_delay_s*1e3:.2f} ms",
-                      f"{item.modulation_ratio:.4f}", f"{item.distance:.4f}")
+    inventory = read_inventory(BOM, values)
+    r6_values = tuple(sorted({item.value for item in inventory
+                              if item.kind == "R" and 47_000 <= item.value <= 1_000_000}))
+    require(r6_values, "inventory has no plausible oscillator-control resistor")
+    rng = random.Random(seed)
+    builds = [nominal_sonification_build(values, electrode)]
+    builds.extend(sampled_sonification_build(values, electrode, rng)
+                  for _ in range(samples))
+    rows = []
+    total_phases = 0
+    for candidate in CANDIDATES:
+        for r6 in r6_values:
+            minimum_ratio = math.inf
+            minimum_alpha = math.inf
+            worst_delay = 0.0
+            first_failure = None
+            for build_index, base in enumerate(builds):
+                r6_rng = random.Random(seed ^ (build_index*0x9E3779B1)
+                                       ^ int(r6) ^ candidate.physical_parts)
+                build = replace(base, r6_ohm=r6*(1+r6_rng.uniform(-0.05, 0.05)))
+                result = simulate_build(build, candidate, phase_steps)
+                require(result.phases_executed == phase_steps,
+                        f"{candidate.name}/{r6:g}: phase coverage mismatch")
+                total_phases += result.phases_executed
+                minimum_ratio = min(minimum_ratio, result.worst.modulation_ratio)
+                minimum_alpha = min(minimum_alpha, result.worst.alpha_to_carrier)
+                worst_delay = max(worst_delay, max(
+                    sonification_group_delay(build, candidate, 8+0.1*index)
+                    for index in range(41)))
+                if result.first_failure and first_failure is None:
+                    first_failure = f"build {build_index}: {result.first_failure}"
+            rows.append((candidate, r6, worst_delay, minimum_ratio,
+                         minimum_alpha, first_failure))
+    expected = len(CANDIDATES)*len(r6_values)*(samples+1)*phase_steps
+    require(total_phases == expected,
+            f"executed {total_phases} phases, expected {expected}")
+    table = Table(title=f"Physical end-to-end sonification campaign — {electrode}")
+    table.add_column("Candidate / R6")
+    table.add_column("Builds × phases", justify="right")
+    table.add_column("Worst delay", justify="right")
+    table.add_column("Min speaker α/artifact", justify="right")
+    table.add_column("Gate")
+    for candidate, r6, delay, ratio, alpha, failure in rows:
+        table.add_row(f"{candidate.name} / {r6/1e3:g}k", f"{samples+1} × {phase_steps}",
+                      f"{delay*1e3:.2f} ms", f"{ratio:.4f}", failure or "PASS")
     console.print(table)
-    console.print(f"Selected mathematical knee: [bold]{frontier[0].candidate.name}[/bold]. ")
-    console.print(f"Deterministic contract: {samples} builds, seed {seed}, {phase_steps} phases.")
+    feasible = [row for row in rows if row[-1] is None and row[0].name != "mfb2"]
+    require(feasible, "no hardware candidate passes every physical build and phase")
+    nondominated = [row for row in feasible if not any(
+        other[2] <= row[2] and other[3] >= row[3]
+        and (other[2] < row[2] or other[3] > row[3]) for other in feasible)]
+    delays = [row[2] for row in nondominated]
+    ratios = [row[3] for row in nondominated]
+    delay_span = max(delays)-min(delays)
+    ratio_span = max(ratios)-min(ratios)
+    def score(row):
+        return math.hypot(
+            0 if delay_span == 0 else (row[2]-min(delays))/delay_span,
+            0 if ratio_span == 0 else (max(ratios)-row[3])/ratio_span,
+        )
+    selected = min(nondominated, key=lambda row: (
+        score(row), row[2], row[0].physical_parts, row[1]))
+    console.print(f"Executed exactly {expected} complete speaker-current phase cases.")
+    console.print(f"Selected physical knee: [bold]{selected[0].name}, "
+                  f"R6={selected[1]/1e3:g} kΩ[/bold] (distance {score(selected):.4f}).")
     if electrode == "dry":
         console.print("[yellow]Dry-electrode verdict: INFORMATIONAL ONLY.[/yellow]")
 
