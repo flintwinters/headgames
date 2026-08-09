@@ -32,14 +32,20 @@ Acquisition ratios remain assembly invariants. Pair-match `R12/R22` (10 MΩ),
 series 1 nF C0G parts; show every physical part. A stocked 1 nF + 470 pF pair
 is acceptable; a lone 1 nF is not equivalent.
 
-Current model evidence is:
+The previous sonification-frontier outputs are invalid and must not guide the
+circuit. They did not execute their advertised build count or phase sweep,
+used pre-oscillator proxies instead of the declared speaker-current endpoint,
+and did not propagate the complete simultaneous stimulus through the physical
+path. Do not cite the reported Pareto knee, group delays, modulation ratios,
+sidebands, or candidate selection as design evidence. The TI cable transient
+is a limited block-level result, not end-to-end sonification validation.
+
+Current limited block-level evidence is:
 
 | Model | Result |
 |---|---|
-| Broad ALPHA candidate | 34.13 ms worst 8–12 Hz group delay; alpha/artifact ratio 0.1726; selected normalized Pareto knee |
-| One stocked MFB reference | 82.41 ms; ratio 1.2699 |
-| Two-MFB historical reference | 134.51 ms; ratio 9.1975; report-only |
-| Stateful U2D/LM386 behavior | About 682 Hz carrier; finite swing, duty, sidebands, harmonics, current, clipping, and latching are reported |
+| Stateful oscillator prototype | Produces a nominal carrier near 682 Hz; not validated with the complete electrode-to-speaker stimulus or physical spreads |
+| LM386 behavioral prototype | Implements nominal gain, input resistance, bandwidth, clipping, and load; not yet sufficient for output-power or nonlinear claims |
 | TI cable transient | 100 Ω fails the prior 250 pF overshoot gate; the smallest passing stocked value is 8.2 kΩ with 0.0% measured overshoot and 8.4 µs settling |
 
 The LM386 model is bounded by its official gain-20, 50 kΩ input, and 300 kHz
@@ -51,12 +57,13 @@ and two-MFB implementations are historical evidence, not hardware candidates.
 
 - Establish loop-return phase margin for the selected 8.2 kΩ cable isolation,
   then reconcile both active buffers and the five-wire boundary in KiCad.
-- Extend the frontier runner so all requested seeded physical builds and phase
-  combinations genuinely exercise each independent stocked part through the
-  complete transient speaker-current model.
-- Implement the selected broad ALPHA-to-U2D control path in KiCad: synthesize
-  `R6`, remove the LM358 detector, diode, hold network, `HOLD`, `DRV`, and
-  `ENV`, and prove exact native-netlist equivalence through the speaker.
+- Remove or fail-close the invalid frontier and selection interfaces, then
+  implement a genuine end-to-end electrode-to-speaker-current experiment.
+  Every requested seeded build and phase combination must exercise every
+  relevant independent stocked part and the complete simultaneous stimulus.
+- Select the weighting topology and synthesize `R6` only after that valid
+  experiment produces a reproducible frontier. Do not implement a candidate
+  in KiCad based on the invalid nominal knee.
 - Extend characterization across VREF, supply, noise, slew, swing, clipping,
   onset/offset, and carrier-edge response. The attempted TI VREF transient
   fixture was removed because the vendor macro-model could not establish its
@@ -65,6 +72,42 @@ and two-MFB implementations are historical evidence, not hardware candidates.
   phantom and nobody connected before any physiological test.
 
 ## Working method
+
+### Simulation integrity
+
+A simulation exists to produce evidence that can support a stated decision.
+If it cannot do that, do not present it as validation. A plausible-looking
+number from an incomplete experiment is actively harmful because it creates
+false confidence.
+
+- Every command must execute every option and contract it advertises. Never
+  accept or print a sample count, phase count, tolerance range, stimulus, or
+  gate that the implementation did not actually exercise.
+- Measure acceptance at the declared physical endpoint. Do not silently
+  replace speaker-current modulation with a filter-node proxy, complete-path
+  stability with a block-level transient, or physical behavior with an ideal
+  transfer function.
+- Propagate the complete declared stimulus through the complete declared path,
+  including simultaneous signals, state, nonlinearities, loading, clipping,
+  recovery, supply/VREF conditions, and independently moved physical parts
+  wherever those effects are in scope.
+- Make omissions, idealizations, model boundaries, and bench-gated claims
+  explicit in both code and output. Analytical and block-level models may be
+  useful, but they must be labeled accurately and cannot claim end-to-end
+  circuit validation.
+- Fail closed when a model, dependency, cross-check, or requested coverage is
+  missing. Do not emit a selection, acceptance verdict, Pareto frontier, or
+  other decision-shaped output from incomplete evidence.
+- Durable tests must prove requested case counts, deterministic replay,
+  independent tolerance movement, phase coverage, stimulus coverage, endpoint
+  measurement, rejection gates, and deliberate failure of incomplete runs.
+- Apply identical experiments and gates to every compared candidate. Perform
+  no ranking or mathematical knee selection until every candidate has
+  completed the same valid experiment.
+- Treat any discovered placeholder, ignored option, proxy mislabeled as an
+  endpoint metric, or unexercised acceptance gate as a correctness defect.
+  Invalidate its prior results immediately and remove or disable the interface
+  until it becomes real.
 
 Use stock KiCad symbols and validate the native schematic with `kicad-cli`.
 Never edit it while its lock exists. Preserve user layout and UI artifacts and
