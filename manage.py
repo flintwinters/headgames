@@ -234,6 +234,15 @@ def resistance(value: str) -> float:
     return float(token)
 
 
+def oscillator_control_resistance(
+    values: dict[str, str], rheostat_fraction: float = 0.5
+) -> float:
+    """Return fixed R6 plus the selected fraction of series rheostat RV3."""
+    require(0.0 <= rheostat_fraction <= 1.0,
+            "RV3 rheostat fraction must be between zero and one")
+    return resistance(values["R6"]) + rheostat_fraction * resistance(values["RV3"])
+
+
 def capacitance(value: str) -> float:
     """Parse the leading compact capacitor value used in schematic fields."""
     token = value.split()[0]
@@ -340,7 +349,19 @@ def assert_eeg_signal_path(
     require({("U2", "8"), ("RV2", "1"), ("C16", "1")} <= alpha_net,
             "ALPHA feedback does not match the simulated parallel network")
     require(("R6", "2") in alpha_net,
-            "ALPHA must drive U2D directly through R6")
+            "ALPHA must enter the oscillator coupling network through R6")
+    exact_net(("R6", "1"), {("R6", "1"), ("RV3", "2")})
+    oscillator_control_net = next(net for net in nets.values() if ("RV3", "1") in net)
+    require({("RV3", "1"), ("U2", "12")} <= oscillator_control_net,
+            "RV3 must complete the explicit series path to U2D")
+    require(resistance(values["R6"]) == 68_000.0,
+            "R6 must retain a 68 kohm oscillator-coupling floor")
+    require(resistance(values["RV3"]) == 250_000.0,
+            "RV3 must provide 250 kohm of adjustable series resistance")
+    require(oscillator_control_resistance(values, 0.0) == 68_000.0,
+            "oscillator coupling minimum must remain bounded at 68 kohm")
+    require(oscillator_control_resistance(values, 1.0) == 318_000.0,
+            "oscillator coupling maximum must remain 318 kohm")
     require(resistance(values["R24"]) == 8_200.0
             and resistance(values["R25"]) == 8_200.0,
             "both active-buffer cable outputs require 8.2 kohm isolation")
@@ -555,7 +576,7 @@ def nominal_sonification_build(values: dict[str, str], electrode: str = "wet"
         resistance(values["R23"])+0.5*resistance(values["RV2"]),
         capacitance(values["C16"]), (stage, stage),
         resistance(values["R3"]), resistance(values["R4"]),
-        resistance(values["R6"]), resistance(values["R9"]),
+        oscillator_control_resistance(values), resistance(values["R9"]),
         capacitance(values["C10"]), resistance(values["R5"]),
         resistance(values["R8"]), capacitance(values["C5"]),
         capacitance(values["C6"]), resistance(values["R10"]),
@@ -605,7 +626,9 @@ def sampled_sonification_build(values: dict[str, str], electrode: str,
         alpha_feedback_ohm=move(nominal.alpha_feedback_ohm, 0.05),
         alpha_feedback_f=move(nominal.alpha_feedback_f, 0.10),
         mfb=tuple(stages), r3_ohm=move(nominal.r3_ohm, 0.05),
-        r4_ohm=move(nominal.r4_ohm, 0.05), r6_ohm=move(nominal.r6_ohm, 0.05),
+        r4_ohm=move(nominal.r4_ohm, 0.05),
+        r6_ohm=(move(resistance(values["R6"]), 0.05)
+                + 0.5*move(resistance(values["RV3"]), 0.05)),
         r9_ohm=move(nominal.r9_ohm, 0.01), c10_f=move(nominal.c10_f, 0.10),
         r5_audio_ohm=move(nominal.r5_audio_ohm, 0.05),
         r8_audio_ohm=move(nominal.r8_audio_ohm, 0.05),

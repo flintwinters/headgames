@@ -18,7 +18,8 @@ oscillator, the gain-20 LM386 stage, and speaker current. The current native
 schematic implements the same selected path, including the two LM358N active
 buffers, independent 8.2 kΩ cable isolation, the five-wire assembly boundary,
 explicit continuous MEAS/REF wiring through those buffers, and direct
-ALPHA-to-R6 control. Core signal-path continuity must not be hidden behind
+ALPHA-to-U2D control through a 68 kΩ R6 floor plus the series 250 kΩ RV3
+rheostat. Core signal-path continuity must not be hidden behind
 same-sheet label jumps. Model acceptance remains closed because the
 nominal noisy end-to-end experiment fails its alpha-modulation gate.
 

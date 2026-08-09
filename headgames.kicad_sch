@@ -3746,16 +3746,6 @@
 	)
 	(wire
 		(pts
-			(xy 168.91 88.9) (xy 176.53 88.9)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f3df7d7d-3247-4679-9757-e84547796c5c")
-	)
-	(wire
-		(pts
 			(xy 179.07 93.98) (xy 181.61 93.98)
 		)
 		(stroke
@@ -4554,6 +4544,46 @@
 	)
 	(symbol
 		(lib_id "Device:R")
+		(at 172.72 88.9 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d3000000-0000-4000-8000-000000000003")
+		(property "Reference" "RV3"
+			(at 172.72 83.82 90)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Value" "250k TRIM"
+			(at 172.72 81.28 90)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Footprint" ""
+			(at 172.72 88.9 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Datasheet" "~"
+			(at 172.72 88.9 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(property "Description" "External 250k linear potentiometer used as rheostat; strap wiper to the R6 end"
+			(at 172.72 88.9 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+		(pin "1" (uuid "d3010000-0000-4000-8000-000000000001"))
+		(pin "2" (uuid "d3010000-0000-4000-8000-000000000002"))
+		(instances
+			(project "headgames"
+				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
+					(reference "RV3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
 		(at 165.1 76.2 270)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4633,7 +4663,7 @@
 				)
 			)
 		)
-		(property "Value" "220k"
+		(property "Value" "68k"
 			(at 165.1 85.9536 90)
 			(effects
 				(font
@@ -4657,7 +4687,7 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Oscillator-control coupling floor; RV3 adds adjustable series resistance"
 			(at 165.1 88.9 0)
 			(effects
 				(font
