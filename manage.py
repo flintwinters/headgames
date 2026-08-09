@@ -6,10 +6,8 @@ from __future__ import annotations
 import math
 import hashlib
 import random
-import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -1102,11 +1100,11 @@ def test() -> None:
     assert_artifact_simulation(values)
     assert_active_electrode_simulation(values)
     verify_physical_filter_synthesis()
-    verify_filter_stress(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
+    verify_filter_stress(values)
     console.print("[green]Schematic connectivity checks passed.[/green]")
 
 

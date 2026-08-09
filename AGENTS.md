@@ -38,10 +38,14 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
+| Physical MFB Python tier | 1,024 corners + 20,000 seeded builds retain ≥523.8% passive `ENV` change, ≥1.669 V modeled node margin, 1.12 µV RMS noise, and 0.913 s recovery bound |
+| Required SPICE cross-check | Fail: ngspice 44.2 rejects TI Rev. C LMx58/LM2904 PSpice `IF()`/switch syntax; no agreement result exists |
 
-Thus sharper selectivity is the leading fix. The filter model is not yet
-buildable hardware: synthesize its physical network and validate tolerances,
-noise, headroom, saturation, and recovery before editing the schematic. Active
+Thus sharper selectivity remains the leading candidate, but the hardware gate
+is closed. The proposed two-stage MFB network has encouraging Python-only
+stress results; the required independent TI-model SPICE cross-check fails at
+simulator compatibility, and the model still needs fuller acquisition, VREF,
+detector, temperature, and transient validation before editing the schematic. Active
 electrodes address cable/source imbalance but not motion; if pursued, both
 safety resistors must precede every electrode-site buffer and the worn supply
 must remain isolated. The LM324N remains an inventory-first compromise with a
@@ -49,8 +53,10 @@ clear future boundary for buffers or an instrumentation amplifier.
 
 ## Current big tasks
 
-- Synthesize the passing two-biquad filter as a one-dual-op-amp physical network
-  and model its passive tolerances, noise, headroom, and overload recovery.
+- Establish a compatible, source-locked independent simulation of the proposed
+  MFB network and reconcile it with Python before considering a schematic edit.
+- Extend the stress model through full acquisition/VREF/detector nonidealities,
+  temperature limits, trim spreads, deterministic phases, and transient recovery.
 - Implement the matched 474 kΩ pair and matched 1.5 nF networks after inventory
   confirmation.
 - Reproduce the survival fixture with an isolated physical EEG phantom.

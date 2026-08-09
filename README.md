@@ -28,6 +28,9 @@ python3 manage.py simulate-eeg
 python3 manage.py simulate-artifacts
 python3 manage.py simulate-active-electrodes
 python3 manage.py simulate-sharper-filter
+python3 manage.py simulate-filter-network
+python3 manage.py simulate-filter-stress --tier build --samples 20000 --seed 1212498244
+python3 manage.py simulate-filter-stress --tier abuse --samples 20000 --seed 1212498244
 ```
 
 The simulations extract schematic values and use declared engineering stress
@@ -44,6 +47,8 @@ least 25%.
 | Active electrodes | Mains falls 0.686→0.004 V, but motion reaches 1.000 V and `ENV` changes 2.8% | Fail; buffers solve cable imbalance, not motion |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
 | Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
+| Physical MFB Python tier | 1,024 corners + 20,000 seeded builds: ≥523.8% passive `ENV` change; ≥1.669 V modeled node margin; 1.12 µV RMS noise; 0.913 s recovery bound | Partial result only |
+| TI-model SPICE cross-check | TI Rev. C LMx58/LM2904 model fails in ngspice 44.2 on PSpice `IF()` and switch syntax | **Fail; hardware gate remains closed** |
 
 The active-electrode sensitivity model assumes 5 pF input capacitance, 1 MHz
 GBW, 100 Ω output resistance, 10 pA bias, 25 nV/√Hz white noise, and unequal
@@ -52,6 +57,15 @@ targets, not a hardware pass. The model uses ideal biquads; physical
 passive synthesis, correlated tolerances, filter noise, op-amp limits,
 saturation, overload recovery, electrode nonlinearities, and isolated phantom
 measurement remain outstanding.
+
+The physical candidate is two identical VREF-biased MFB stages, each using
+255 kΩ, 64.9 kΩ, 510 kΩ, and two 100 nF parts with one additional LM358N
+package. Its Python model exposes internal nodes and branch currents and checks
+the passive-electrode fixture. The figures above do not include a successful
+independent simulator cross-check, do not establish probabilistic yield, and do
+not authorize a schematic edit. The non-gating abuse tier first fails at the
+declared 100 mV differential overload because the existing 2,433 V/V
+acquisition necessarily saturates.
 
 ## Matched acquisition parts
 
