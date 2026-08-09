@@ -4555,7 +4555,7 @@
 			(at 172.72 83.82 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "250k TRIM"
+		(property "Value" "25k TRIM"
 			(at 172.72 81.28 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -4567,7 +4567,7 @@
 			(at 172.72 88.9 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
-		(property "Description" "External 250k linear potentiometer used as rheostat; strap wiper to the R6 end"
+		(property "Description" "External 25k linear potentiometer used as rheostat; strap wiper to the R6 end"
 			(at 172.72 88.9 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
@@ -4663,7 +4663,7 @@
 				)
 			)
 		)
-		(property "Value" "68k"
+		(property "Value" "180k"
 			(at 165.1 85.9536 90)
 			(effects
 				(font
@@ -4687,7 +4687,7 @@
 				)
 			)
 		)
-		(property "Description" "Oscillator-control coupling floor; RV3 adds adjustable series resistance"
+		(property "Description" "Oscillator-control coupling floor; RV3 provides a bounded 180k to 205k total range"
 			(at 165.1 88.9 0)
 			(effects
 				(font

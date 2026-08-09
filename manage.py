@@ -354,14 +354,14 @@ def assert_eeg_signal_path(
     oscillator_control_net = next(net for net in nets.values() if ("RV3", "1") in net)
     require({("RV3", "1"), ("U2", "12")} <= oscillator_control_net,
             "RV3 must complete the explicit series path to U2D")
-    require(resistance(values["R6"]) == 68_000.0,
-            "R6 must retain a 68 kohm oscillator-coupling floor")
-    require(resistance(values["RV3"]) == 250_000.0,
-            "RV3 must provide 250 kohm of adjustable series resistance")
-    require(oscillator_control_resistance(values, 0.0) == 68_000.0,
-            "oscillator coupling minimum must remain bounded at 68 kohm")
-    require(oscillator_control_resistance(values, 1.0) == 318_000.0,
-            "oscillator coupling maximum must remain 318 kohm")
+    require(resistance(values["R6"]) == 180_000.0,
+            "R6 must retain a 180 kohm oscillator-coupling floor")
+    require(resistance(values["RV3"]) == 25_000.0,
+            "RV3 must provide 25 kohm of adjustable series resistance")
+    require(oscillator_control_resistance(values, 0.0) == 180_000.0,
+            "oscillator coupling minimum must remain bounded at 180 kohm")
+    require(oscillator_control_resistance(values, 1.0) == 205_000.0,
+            "oscillator coupling maximum must remain 205 kohm")
     require(resistance(values["R24"]) == 8_200.0
             and resistance(values["R25"]) == 8_200.0,
             "both active-buffer cable outputs require 8.2 kohm isolation")
