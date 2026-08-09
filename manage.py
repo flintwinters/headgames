@@ -74,8 +74,8 @@ FRONTIER_NOMINAL_SUPPLY_V = 9.0
 FRONTIER_SUPPLY_BAND_V = 0.2
 # Model the tolerance printed on readily available assembled parts. These are
 # build-to-build component limits, not environmental or abuse excursions.
-FRONTIER_RESISTOR_BAND = 0.01
-FRONTIER_CAPACITOR_BAND = 0.05
+FRONTIER_RESISTOR_BAND = 0.05
+FRONTIER_CAPACITOR_BAND = 0.10
 FRONTIER_SAMPLES = 2_000
 DETECTOR_DIODE = DiodeModel()
 INVENTORY_AMPLIFIER_ICS = frozenset({"LM324N", "LM358N"})
@@ -819,12 +819,12 @@ def verify_physical_filter_synthesis() -> None:
             "physical solver did not expose source/load current")
     require(sum(1 for _ in component_corner_cases()) == 1_024,
             "physical filter must enumerate exactly 1,024 independent endpoints")
-    require(FRONTIER_RESISTOR_BAND == 0.01,
-            "physical frontier must cover the specified 1% resistor tolerance")
-    require(FRONTIER_CAPACITOR_BAND == 0.05,
-            "physical frontier must cover the specified 5% capacitor tolerance")
-    left = bounded_stage_sample(random.Random(0x48454144), 0.01, 0.05)
-    right = bounded_stage_sample(random.Random(0x48454144), 0.01, 0.05)
+    require(FRONTIER_RESISTOR_BAND == 0.05,
+            "unmarked resistors must use the specified 5% tolerance")
+    require(FRONTIER_CAPACITOR_BAND == 0.10,
+            "unmarked capacitors must use the specified 10% tolerance")
+    left = bounded_stage_sample(random.Random(0x48454144), 0.05, 0.10)
+    right = bounded_stage_sample(random.Random(0x48454144), 0.05, 0.10)
     require(left == right, "bounded Monte Carlo seed is not reproducible")
 
 
@@ -865,6 +865,28 @@ def print_inventory_synthesis(values: dict[str, str]) -> None:
     table.add_row("f0 / Q / gain", "", f"{candidate.center_hz:.5f} Hz / {candidate.q:.5f} / {candidate.gain:.5f}")
     table.add_row("Physical parts", "", str(candidate.part_count))
     console.print(table)
+
+
+def inventory_mfb_parts(values: dict[str, str], rng: random.Random | None = None) -> MfbStageParts:
+    """Materialize one stage from the sole inventory-backed synthesis."""
+    candidate = synthesize_mfb(read_inventory(BOM, values))
+    if rng is None:
+        return MfbStageParts(candidate.r1.nominal, candidate.r2.nominal,
+                             candidate.r5.nominal, 100e-9, 100e-9)
+    return MfbStageParts(
+        candidate.r1.sample(rng), candidate.r2.sample(rng), candidate.r5.sample(rng),
+        100e-9 * (1 + rng.uniform(-0.10, 0.10)),
+        100e-9 * (1 + rng.uniform(-0.10, 0.10)),
+    )
+
+
+def sampled_inventory_mfb_parts(candidate, rng: random.Random) -> MfbStageParts:
+    """Sample a pre-synthesized candidate without repeating the search."""
+    return MfbStageParts(
+        candidate.r1.sample(rng), candidate.r2.sample(rng), candidate.r5.sample(rng),
+        100e-9 * (1 + rng.uniform(-0.10, 0.10)),
+        100e-9 * (1 + rng.uniform(-0.10, 0.10)),
+    )
 
 
 def print_physical_filter_synthesis() -> None:
@@ -973,7 +995,9 @@ def run_filter_stress(
         if failure is not None and first_failure is None:
             first_failure = failure
 
-    nominal = MfbStageParts()
+    candidate = synthesize_mfb(read_inventory(BOM, values))
+    nominal = MfbStageParts(candidate.r1.nominal, candidate.r2.nominal,
+                            candidate.r5.nominal, 100e-9, 100e-9)
     consume("nominal", nominal, nominal, FRONTIER_NOMINAL_SUPPLY_V)
     rng = random.Random(seed)
     for index in range(samples):
@@ -981,12 +1005,8 @@ def run_filter_stress(
             FRONTIER_NOMINAL_SUPPLY_V - FRONTIER_SUPPLY_BAND_V,
             FRONTIER_NOMINAL_SUPPLY_V + FRONTIER_SUPPLY_BAND_V,
         )
-        first = bounded_stage_sample(
-            rng, FRONTIER_RESISTOR_BAND, FRONTIER_CAPACITOR_BAND
-        )
-        second = bounded_stage_sample(
-            rng, FRONTIER_RESISTOR_BAND, FRONTIER_CAPACITOR_BAND
-        )
+        first = sampled_inventory_mfb_parts(candidate, rng)
+        second = sampled_inventory_mfb_parts(candidate, rng)
         consume(f"near-nominal:{index:05d}", first, second, supply)
 
     noise = integrated_output_noise_rms(nominal, nominal, opamp)

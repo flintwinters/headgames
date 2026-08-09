@@ -56,6 +56,17 @@ class PassiveNetwork:
             return 1 / sum(1 / value for value in values)
         return evaluate(self)
 
+    def sample(self, random_source) -> float:
+        """Sample every physical leaf independently within its bounded tolerance."""
+        def evaluate(node: PassiveNetwork) -> float:
+            if node.operation == "part":
+                return node.nominal * (1 + random_source.uniform(-node.tolerance, node.tolerance))
+            values = [evaluate(child) for child in node.children]
+            if node.operation == "series":
+                return sum(values)
+            return 1 / sum(1 / value for value in values)
+        return evaluate(self)
+
 
 @dataclass(frozen=True)
 class MfbSynthesis:
