@@ -40,9 +40,11 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| Inventory-only active-electrode physical MFB Python tier | Stocked LM358N buffer; nominal + 2,000 seeded builds with independent ±1% R/±5% C movement retain ≥538.5% `ENV` change, 1.073 V node margin, and 1.381 mA peak current; pass, not a yield estimate |
+| Inventory-aware MFB synthesis | Deterministic stocked networks reproduce 255 kΩ / 64.897 kΩ / 510 kΩ with at most four resistors per effective element; KiCad values override stale BOM comments |
+| Wet/dry electrode frontier | Wet Randles interface gates; dry is informational. Both include explicit interface impedance and the 100 Ω/150–250 pF cable-stability contract |
+| Inventory-only physical Python tier | Wet stress moves every resistor leaf and unmarked capacitor independently at its declared or conservative ±5% R/±10% C bound; the required full gate is not yet accepted |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
-| Comprehensive TI PSpice model | Retained unchanged for provenance; ngspice 44.2 still rejects its `IF()`/switch syntax |
+| Comprehensive TI PSpice model | Original remains hash-locked. Its deterministic ngspice translation parses, but the first unity-follower DC characterization converges outside the rails; acceptance remains closed |
 
 Thus active electrodes plus sharper selectivity are the current testing
 frontier, but hardware acceptance is closed because they exist only in the
@@ -50,7 +52,8 @@ model. Conversely, KiCad's carrier and LM386 output are beyond the current
 physical simulation boundary. The acquisition/ALPHA and precision detector are
 implemented on both sides and their native topology is checked. The
 proposed two-stage MFB network has strong modeled selectivity. Its build
-frontier uses ordinary ±1% resistor and ±5% capacitor tolerances while keeping
+frontier uses each synthesized physical part's tolerance, defaulting unmarked
+resistors to ±5% and capacitors to ±10%, while keeping
 supply and environmental conditions nominal. Acquisition DC error
 uses typical input-offset current through the matched 10 MΩ paths and unity DC
 noise gain because the 474 kΩ input arms are AC-coupled. The model now includes
@@ -67,6 +70,8 @@ clear future boundary for buffers or an instrumentation amplifier.
 
 ## Current big tasks
 
+- Reconcile the translated TI model's PSpice/ngspice semantics; its unity
+  follower must stay inside the rails before broader characterization can count.
 - Reconcile the physical model and native KiCad circuit block by block: select
   and model only inventory-stocked parts, implement the validated MFB
   sections in KiCad, and either model carrier/audio or explicitly end both

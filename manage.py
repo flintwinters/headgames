@@ -1567,7 +1567,7 @@ def accept() -> None:
     assert_precision_detector(nets, values)
     require_frontier_alignment()
     verify_filter_stress(values)
-    console.print("[bold green]ACCEPTANCE PASS: every declared gate passed.[/bold green]")
+    console.print("[bold green]MODEL ACCEPTANCE PASS: every declared model gate passed.[/bold green]")
 
 
 @app.command("simulate-filter-network")
