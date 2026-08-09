@@ -4,3 +4,4 @@
 /headgames-backups/
 /*.kicad_prl
 /~*.lck
+*_bom.csv
