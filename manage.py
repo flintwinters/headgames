@@ -75,6 +75,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
 BOM = PROJECT_ROOT / "headgames_bom.csv"
 TI_MODEL = PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib"
+ALPHA_REDESIGN_R6_OHM = (100_000.0, 68_000.0, 47_000.0)
 
 LM324_ACQUISITION = AmplifierLimits(
     "LM324N acquisition", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.5e6,
@@ -682,6 +683,8 @@ def verify_sonification_integrity(values: dict[str, str]) -> None:
             "speaker-resistance spread was not exercised")
     require(left.mfb[0] != left.mfb[1],
             "independent MFB stages moved together")
+    require(ALPHA_REDESIGN_R6_OHM == (100_000.0, 68_000.0, 47_000.0),
+            "alpha-redesign R6 coverage changed")
 
 
 def _sonification_frontier_case(arguments):
@@ -706,6 +709,23 @@ def _selected_spread_case(arguments):
         noise_seed=seed ^ (build_index*0x85EBCA6B),
     )
     return build_index, result
+
+
+def _alpha_redesign_case(arguments):
+    """Run one candidate/R6/build combination for the redesign experiment."""
+    candidate, r6, build_index, build, phase_steps, seed = arguments
+    if build_index:
+        rng = random.Random(seed ^ (build_index*0x9E3779B1) ^ int(r6))
+        build = replace(build, r6_ohm=r6*(1+rng.uniform(-0.05, 0.05)))
+    else:
+        build = replace(build, r6_ohm=r6)
+    result = simulate_build(
+        build, candidate, phase_steps,
+        noise_seed=seed ^ (build_index*0x85EBCA6B),
+    )
+    delay = max(sonification_group_delay(build, candidate, 8+0.1*index)
+                for index in range(41))
+    return candidate.name, r6, build_index, result, delay
 
 
 def active_electrode_channels(electrode: str | None = None
@@ -2115,6 +2135,87 @@ def validate_selected_spreads(
     require(not failures,
             f"selected spread campaign failed {len(failures)}/{len(results)} builds; "
             f"first is build {failures[0][0]}: {failures[0][1]}")
+
+
+@app.command("evaluate-alpha-redesign")
+def evaluate_alpha_redesign(
+    samples: int = typer.Option(4, min=1),
+    seed: int = typer.Option(0x414C5048, min=0),
+    phase_steps: int = typer.Option(16, min=16),
+    workers: int = typer.Option(4, min=1, max=32),
+) -> None:
+    """Compare 1/2/3-stage alpha weighting with identical R6 experiments."""
+    _, values = schematic_data()
+    candidates = tuple(item for item in CANDIDATES
+                       if item.name in ("alpha", "mfb1", "mfb2"))
+    r6_values = ALPHA_REDESIGN_R6_OHM
+    rng = random.Random(seed)
+    builds = [nominal_sonification_build(values, "wet")]
+    builds.extend(sampled_sonification_build(values, "wet", rng)
+                  for _ in range(samples))
+    tasks = [
+        (candidate, r6, build_index, build, phase_steps, seed)
+        for candidate in candidates
+        for r6 in r6_values
+        for build_index, build in enumerate(builds)
+    ]
+    aggregates = {
+        (candidate.name, r6): {
+            "alpha": math.inf, "ratio": math.inf, "margin": math.inf,
+            "current": 0.0, "delay": 0.0, "failures": [],
+        }
+        for candidate in candidates for r6 in r6_values
+    }
+    executed = 0
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        for name, r6, build_index, result, delay in executor.map(
+                _alpha_redesign_case, tasks, chunksize=1):
+            require(result.phases_executed == phase_steps,
+                    f"{name}/{r6:g}/build {build_index}: phase coverage mismatch")
+            executed += result.phases_executed
+            item = aggregates[(name, r6)]
+            item["alpha"] = min(item["alpha"], result.worst.alpha_to_carrier)
+            item["ratio"] = min(item["ratio"], result.worst.modulation_ratio)
+            item["margin"] = min(item["margin"], result.worst.minimum_node_margin_v)
+            item["current"] = max(item["current"], result.worst.peak_lm386_current_a)
+            item["delay"] = max(item["delay"], delay)
+            if result.first_failure:
+                item["failures"].append((build_index, result.first_failure))
+    expected = len(tasks)*phase_steps
+    require(executed == expected,
+            f"executed {executed} redesign phases, expected {expected}")
+    table = Table(title="Alpha redesign — complete wet speaker-current experiment")
+    table.add_column("Weighting / R6")
+    table.add_column("Builds × phases", justify="right")
+    table.add_column("α/carrier", justify="right")
+    table.add_column("α/artifact", justify="right")
+    table.add_column("Margin", justify="right")
+    table.add_column("Delay", justify="right")
+    table.add_column("Gate")
+    feasible = []
+    for candidate in candidates:
+        for r6 in r6_values:
+            item = aggregates[(candidate.name, r6)]
+            failure = item["failures"][0][1] if item["failures"] else None
+            table.add_row(
+                f"{candidate.name} / {r6/1e3:g}k",
+                f"{samples+1} × {phase_steps}", f"{item['alpha']:.2%}",
+                f"{item['ratio']:.4f}", f"{item['margin']:.3f} V",
+                f"{item['delay']*1e3:.1f} ms", failure or "PASS",
+            )
+            if not item["failures"]:
+                feasible.append((candidate, r6, item))
+    console.print(table)
+    console.print(f"Executed exactly {expected} complete redesign phase cases.")
+    require(feasible, "no alpha-weighting/R6 redesign passes every build and phase")
+    passing = ", ".join(f"{candidate.name}/R6={r6/1e3:g} kΩ"
+                        for candidate, r6, _ in feasible)
+    console.print(f"[bold green]MODELED GATE PASS:[/bold green] {passing}")
+    console.print(
+        "[yellow]NO HARDWARE SELECTION:[/yellow] MFB inventory provenance, "
+        "amplifier allocation, leaf-level spreads, and device-level nonlinear "
+        "evidence remain incomplete."
+    )
 
 
 @app.command("simulate-sonification-frontier")

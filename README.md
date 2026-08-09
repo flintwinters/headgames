@@ -34,6 +34,7 @@ python3 manage.py simulate-sonification-frontier --electrode wet --samples 2001 
 python3 manage.py synthesize-cable-isolation
 python3 manage.py characterize-buffer-transient
 python3 manage.py validate-selected-spreads --samples 16 --phase-steps 16
+python3 manage.py evaluate-alpha-redesign --samples 16 --phase-steps 16
 python3 manage.py accept
 ```
 
@@ -53,6 +54,17 @@ at the speaker-current endpoint. All 17 builds fail alpha modulation; the worst
 alpha/carrier result is 0.09%, peak modeled output/load current is 128.1 mA,
 minimum modeled node margin is −0.949 V, and no modeled build clips or latches.
 These are behavioral-model results, not LM386 distortion or current-limit proof.
+
+The controlled redesign comparison executes 3 weighting alternatives × 3
+explicit R6 values × 17 identical physical builds × 16 alpha phases, for
+2,448 complete wet-electrode speaker-current cases. Only the historical
+two-MFB cascade with 68 kΩ or 100 kΩ passes the present behavioral gates;
+the 68 kΩ row has 40.03% worst alpha/carrier modulation, 1.2961 worst
+alpha/artifact ratio, 1.461 V minimum aggregate node margin, and 139.4 ms worst
+8–12 Hz group delay. This is not a hardware selection: the MFB realization
+uses a stale non-authoritative inventory, needs two additional amplifier
+sections, and lacks complete device/leaf-level spread validation. The command
+therefore reports modeled passes but never emits a KiCad selection.
 
 The TI LMx58 transient sweep selects the smallest passing stocked cable
 isolation resistor, 8.2 kΩ. The actual 8.2 kΩ ±5% and 150/250 pF transient

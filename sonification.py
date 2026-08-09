@@ -591,6 +591,7 @@ def simulate_build(build: SonificationBuild, candidate: SonificationCandidate,
         if not 300 <= item.frequency_hz <= 1500: failures.append(f"phase {index}: frequency")
         if not 0.10 <= item.duty_cycle <= 0.90: failures.append(f"phase {index}: duty")
         if item.alpha_to_carrier < 0.01: failures.append(f"phase {index}: alpha modulation")
+        if item.modulation_ratio < 1.0: failures.append(f"phase {index}: artifact rejection")
         if item.minimum_node_margin_v < 0.250: failures.append(f"phase {index}: node margin")
         if item.peak_lm386_current_a > 0.5: failures.append(f"phase {index}: amplifier current")
         if item.clipped: failures.append(f"phase {index}: clipping")

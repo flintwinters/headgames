@@ -53,6 +53,12 @@ Current limited block-level evidence is:
 | TI cable transient | Actual 8.2 kΩ ±5% and 150/250 pF corners pass the nominal TI macro-model with 0.0% overshoot and 8.9 µs worst settling; phase margin remains unresolved because valid loop-break fixtures do not converge and TI supplies no process/temperature corners |
 | End-to-end nominal wet/alpha run | Executes all 16 requested phases at the speaker-current endpoint, but fails: worst alpha/carrier modulation is 0.24% versus the 1% gate |
 | Selected wet/alpha spread run | Deterministically executes 17 builds × 16 phases; all 17 fail alpha modulation, worst alpha/carrier is 0.09%, peak modeled output/load current is 128.1 mA, and minimum modeled node margin is −0.949 V |
+| Alpha redesign comparison | An identical 17-build × 16-phase experiment for each of 3 weightings × 3 R6 values finds only the historical two-MFB cascade with 68 kΩ or 100 kΩ passes current behavioral gates; its worst modeled 8–12 Hz group delay is 139.4 ms, and this is not a hardware selection |
+
+The redesign result is deliberately fail-closed. Its MFB networks currently
+depend on a stale, non-authoritative BOM, require two additional amplifier
+sections, and do not yet have complete leaf-level/device spread coverage.
+Neither passing row may be implemented in KiCad until those facts are resolved.
 
 The LM386 model is bounded by its official gain-20, 50 kΩ input, and 300 kHz
 bandwidth characteristics. Its nonlinear output claims remain bench-gated.
