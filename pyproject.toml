@@ -13,3 +13,19 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+
+[tool.pylint.main]
+recursive = true
+
+[tool.pylint.messages_control]
+disable = "all"
+enable = ["too-many-lines"]
+
+[tool.pylint.design]
+max-module-lines = 600
+
+[dependency-groups]
+dev = [
+    "pylint>=4.0.7",
+]

@@ -138,6 +138,7 @@ false confidence.
 Use stock KiCad symbols and validate the native schematic with `kicad-cli`.
 Never edit it while its lock exists. Preserve user layout and UI artifacts and
 avoid parallel schematic sources. Put durable checks behind the Typer/Rich
-root `manage.py`; do not create ad-hoc tests. Reuse existing modules, keep
+root `manage.py`; do not create ad-hoc tests. Run `manage.py lint` and keep
+every Python module at or below 600 physical lines. Reuse existing modules, keep
 safety annotations conspicuous, and commit each verified logical checkpoint
 with a detailed message.
