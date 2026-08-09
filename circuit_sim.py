@@ -366,6 +366,40 @@ def simulate_active_electrode_inputs(
     )
 
 
+def simulate_nonideal_active_electrode_inputs(
+    parts: EegPathComponents,
+    frequency_hz: float,
+    meas_peak_v: complex,
+    ref_peak_v: complex,
+    meas_channel: ActiveElectrodeChannel,
+    ref_channel: ActiveElectrodeChannel,
+    amplifier: AmplifierLimits,
+) -> complex:
+    """Solve buffered electrodes through the finite-A0/GBW acquisition path."""
+    meas_source, meas_impedance = active_electrode_thevenin(
+        meas_channel,
+        parts.safety_resistance,
+        frequency_hz,
+        meas_peak_v,
+    )
+    ref_source, ref_impedance = active_electrode_thevenin(
+        ref_channel,
+        parts.safety_resistance,
+        frequency_hz,
+        ref_peak_v,
+    )
+    central_parts = replace(parts, electrode_resistance=0.0, safety_resistance=0.0)
+    return simulate_nonideal_electrode_inputs(
+        central_parts,
+        frequency_hz,
+        meas_source,
+        ref_source,
+        meas_impedance,
+        ref_impedance,
+        amplifier,
+    )
+
+
 def active_electrode_output_noise_rms(
     parts: EegPathComponents,
     meas_channel: ActiveElectrodeChannel,

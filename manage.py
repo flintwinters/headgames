@@ -29,7 +29,7 @@ from circuit_sim import (
     simulate_ac,
     simulate_active_electrode_inputs,
     simulate_electrode_inputs,
-    simulate_nonideal_electrode_inputs,
+    simulate_nonideal_active_electrode_inputs,
     simulate_ideal_peak_detector,
     simulate_precision_peak_detector,
 )
@@ -413,17 +413,18 @@ def artifact_fixture_outputs(
     )
 
 
-def physical_artifact_fixture_outputs(
+def frontier_artifact_fixture_outputs(
     values: dict[str, str], include_alpha: bool
 ) -> tuple[tuple[float, complex], ...]:
-    """Solve the passive fixture with finite-A0/GBW LM324 acquisition."""
+    """Solve active electrodes through the finite-A0/GBW LM324 acquisition."""
     model = eeg_path_model(values)
+    meas_channel, ref_channel = active_electrode_channels()
     return tuple(
         (
             tone.frequency_hz,
-            simulate_nonideal_electrode_inputs(
+            simulate_nonideal_active_electrode_inputs(
                 model, tone.frequency_hz, tone.meas_peak_v, tone.ref_peak_v,
-                20_000.0, 100_000.0, LM324_ACQUISITION,
+                meas_channel, ref_channel, LM324_ACQUISITION,
             ),
         )
         for tone in artifact_fixture_tones(include_alpha)
@@ -732,8 +733,8 @@ def _stress_metrics(
     values: dict[str, str], first: MfbStageParts, second: MfbStageParts,
     opamp: OpAmpModel, supply_v: float, detector_release_s: float,
 ) -> tuple[float, float, float]:
-    artifacts = physical_artifact_fixture_outputs(values, False)
-    with_alpha = physical_artifact_fixture_outputs(values, True)
+    artifacts = frontier_artifact_fixture_outputs(values, False)
+    with_alpha = frontier_artifact_fixture_outputs(values, True)
     filtered_artifacts = _physical_filtered_outputs(artifacts, first, second, opamp)
     filtered_alpha = _physical_filtered_outputs(with_alpha, first, second, opamp)
     artifact_env = simulate_ideal_peak_detector(filtered_artifacts, detector_release_s,
@@ -825,14 +826,14 @@ def run_filter_stress(
 
     nominal = MfbStageParts()
     noise = integrated_output_noise_rms(nominal, nominal, opamp)
-    alpha_peak = abs(physical_artifact_fixture_outputs(values, True)[-1][1]) * abs(
+    alpha_peak = abs(frontier_artifact_fixture_outputs(values, True)[-1][1]) * abs(
         solve_cascade_ac(nominal, nominal, opamp, 10.0).transfer
     )
     recovery = recovery_bound_seconds(nominal, opamp, release * (1.2 if tier == "build" else 1.0))
     if tier == "build":
         detector_artifacts = simulate_precision_peak_detector(
             _physical_filtered_outputs(
-                physical_artifact_fixture_outputs(values, False), nominal, nominal, opamp
+                frontier_artifact_fixture_outputs(values, False), nominal, nominal, opamp
             ),
             resistance(values["R18"]), capacitance(values["C17"]), 8.0, 4.0,
             LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
@@ -840,7 +841,7 @@ def run_filter_stress(
         )
         detector_alpha = simulate_precision_peak_detector(
             _physical_filtered_outputs(
-                physical_artifact_fixture_outputs(values, True), nominal, nominal, opamp
+                frontier_artifact_fixture_outputs(values, True), nominal, nominal, opamp
             ),
             resistance(values["R18"]), capacitance(values["C17"]), 8.0, 4.0,
             LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
@@ -967,7 +968,7 @@ def verify_filter_stress(values: dict[str, str], samples: int = 20_000,
 
 
 def print_filter_stress(result: FilterStressResult) -> None:
-    title = ("Python physical-model stress — PARTIAL EVIDENCE"
+    title = ("Active-electrode physical MFB stress — PARTIAL EVIDENCE"
              if result.tier == "build" else "Physical filter stress — abuse tier")
     table = Table(title=title)
     table.add_column("Metric")
