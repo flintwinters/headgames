@@ -133,7 +133,7 @@ def assert_audio_output_stabilized(
     assert ("R10", "1") in zobel_midpoint, "Zobel C7 and R10 must be in series"
     assert ("R10", "2") in ground_net, "Zobel resistor must return to ground"
     assert resistance(values["R10"]) == 10.0, "Zobel resistor must be 10 ohms"
-    assert values["C7"].split()[0] == "50n", "Zobel capacitor must be 50 nF"
+    assert values["C7"].split()[0] == "47n", "Zobel capacitor must be 47 nF"
 
 
 def assert_eeg_signal_path(
@@ -160,8 +160,8 @@ def assert_eeg_signal_path(
         1 / (2 * math.pi * (lp_fixed + lp_trim) * capacitance(values["C16"])),
         1 / (2 * math.pi * lp_fixed * capacitance(values["C16"])),
     )
-    assert 8.1 <= hp_range[0] <= 8.3 and 9.4 <= hp_range[1] <= 9.6
-    assert 11.5 <= lp_range[0] <= 12.0 and 13.5 <= lp_range[1] <= 13.7
+    assert 7.8 <= hp_range[0] <= 8.0 and 8.7 <= hp_range[1] <= 8.9
+    assert 10.7 <= lp_range[0] <= 10.8 and 12.3 <= lp_range[1] <= 12.5
     assert hp_range[1] < lp_range[0], "alpha passband corners can overlap"
 
     hp_trim_net = next(net for net in nets.values() if ("RV1", "2") in net)

@@ -6674,7 +6674,7 @@
 				)
 			)
 		)
-		(property "Value" "2.7u FILM/BIPOLAR"
+		(property "Value" "2.2u FILM/BIPOLAR"
 			(at 177.8 144.5006 90)
 			(effects
 				(font
@@ -6738,7 +6738,7 @@
 				)
 			)
 		)
-		(property "Value" "6.2k FIXED"
+		(property "Value" "8.2k FIXED"
 			(at 191.77 143.51 90)
 			(effects
 				(font
@@ -6902,7 +6902,7 @@
 				)
 			)
 		)
-		(property "Value" "3M FIXED"
+		(property "Value" "3.3M FIXED"
 			(at 210.82 157.48 90)
 			(effects
 				(font
@@ -7884,7 +7884,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "50n ZOBEL"
+		(property "Value" "47n ZOBEL"
 			(at 281.051 92.583 0)
 			(effects
 				(font

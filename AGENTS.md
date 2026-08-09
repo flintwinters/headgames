@@ -13,7 +13,8 @@ hiding them behind unnecessary complexity.
 `headgames.kicad_sch` is the sole authoritative schematic. The externally
 wired MVP uses a keyed 9 V isolated-battery input and three electrodes (`MEAS`,
 `REF`, `BIAS`), an inventory-first LM324N for buffered mid-supply reference, AC-coupled
-differential acquisition, 8.7-12.4 Hz alpha-band gain, and envelope-controlled
+differential acquisition, bounded adjustable alpha-band gain with approximately
+7.9-8.8 Hz high-pass and 10.7-12.4 Hz low-pass corner ranges, and envelope-controlled
 audible oscillation, plus an LM386 for speaker output.
 Each electrode enters through two independent series current-limiting
 resistors: 100 kΩ + 100 kΩ on MEAS and REF, and 1 MΩ + 1 MΩ on BIAS.
