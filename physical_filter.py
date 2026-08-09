@@ -86,6 +86,20 @@ class CascadeAcResult:
         return self.stage1.transfer * self.stage2.transfer
 
 
+@dataclass(frozen=True)
+class FilterStressResult:
+    tier: str
+    cases: int
+    worst_coordinate: str
+    minimum_alpha_change: float
+    minimum_node_margin_v: float
+    maximum_output_current_a: float
+    noise_rms_v: float
+    noise_limit_v: float
+    recovery_s: float
+    first_failure: str | None
+
+
 def _solve3(matrix: tuple[tuple[complex, ...], ...], rhs: tuple[complex, ...]) -> tuple[complex, ...]:
     rows = [list(row) + [value] for row, value in zip(matrix, rhs, strict=True)]
     for column in range(3):
@@ -190,3 +204,23 @@ def integrated_output_noise_rms(
         psd.append(first_out + second_out)
     variance = step * (0.5 * psd[0] + sum(psd[1:-1]) + 0.5 * psd[-1])
     return math.sqrt(variance)
+
+
+def bounded_stage_sample(random_source, resistor_tolerance: float, capacitor_tolerance: float) -> MfbStageParts:
+    """Return one reproducible bounded, independent five-component build."""
+    nominal = MfbStageParts()
+    return MfbStageParts(
+        *(getattr(nominal, name) * (1 + random_source.uniform(-tolerance, tolerance))
+          for name, tolerance in (
+              ("r1_ohm", resistor_tolerance), ("r2_ohm", resistor_tolerance),
+              ("r5_ohm", resistor_tolerance), ("c3_f", capacitor_tolerance),
+              ("c4_f", capacitor_tolerance),
+          ))
+    )
+
+
+def recovery_bound_seconds(parts: MfbStageParts, opamp: OpAmpModel, detector_release_s: float) -> float:
+    """Conservative analytical bound after a finite overload clears."""
+    section_settle = -math.log(0.05) * parts.q / (math.pi * parts.center_hz)
+    detector_settle = -math.log(0.10) * detector_release_s
+    return opamp.overload_recovery_s + 2 * section_settle + detector_settle

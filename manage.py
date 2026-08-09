@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import math
+import hashlib
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -30,11 +32,14 @@ from circuit_sim import (
     simulate_peak_detector,
 )
 from physical_filter import (
+    FilterStressResult,
     MfbStageParts,
     OpAmpModel,
+    bounded_stage_sample,
     component_corner_cases,
     ideal_stage_transfer,
     integrated_output_noise_rms,
+    recovery_bound_seconds,
     solve_cascade_ac,
     solve_stage_ac,
 )
@@ -605,6 +610,11 @@ def verify_physical_filter_synthesis() -> None:
             "physical solver did not expose the internal summing node")
     require(abs(physical.output_current_a_per_v) > 0.0,
             "physical solver did not expose source/load current")
+    require(sum(1 for _ in component_corner_cases()) == 1_024,
+            "physical filter must enumerate exactly 1,024 independent endpoints")
+    left = bounded_stage_sample(random.Random(0x48454144), 0.01, 0.05)
+    right = bounded_stage_sample(random.Random(0x48454144), 0.01, 0.05)
+    require(left == right, "bounded Monte Carlo seed is not reproducible")
 
 
 def print_physical_filter_synthesis() -> None:
@@ -623,6 +633,215 @@ def print_physical_filter_synthesis() -> None:
     table.add_row("Output current / Vin", f"{abs(solved.stage1.output_current_a_per_v)*1e6:.3f} µA/V", f"{abs(solved.stage2.output_current_a_per_v)*1e6:.3f} µA/V")
     console.print(table)
     console.print("[yellow]Candidate only:[/yellow] this network is not in headgames.kicad_sch.")
+
+
+def _physical_filtered_outputs(
+    outputs: tuple[tuple[float, complex], ...], first: MfbStageParts, second: MfbStageParts,
+    opamp: OpAmpModel,
+) -> tuple[tuple[float, complex], ...]:
+    return tuple((frequency, output * solve_cascade_ac(first, second, opamp, frequency).transfer)
+                 for frequency, output in outputs)
+
+
+def _stress_metrics(
+    values: dict[str, str], first: MfbStageParts, second: MfbStageParts,
+    opamp: OpAmpModel, supply_v: float, detector_release_s: float,
+) -> tuple[float, float, float]:
+    artifacts = artifact_fixture_outputs(values, False)
+    with_alpha = artifact_fixture_outputs(values, True)
+    filtered_artifacts = _physical_filtered_outputs(artifacts, first, second, opamp)
+    filtered_alpha = _physical_filtered_outputs(with_alpha, first, second, opamp)
+    artifact_env = simulate_peak_detector(filtered_artifacts, detector_release_s,
+                                          duration_seconds=2.0, sample_rate_hz=240.0,
+                                          measurement_seconds=1.0)
+    alpha_env = simulate_peak_detector(filtered_alpha, detector_release_s,
+                                       duration_seconds=2.0, sample_rate_hz=240.0,
+                                       measurement_seconds=1.0)
+    change = (alpha_env.mean_v - artifact_env.mean_v) / artifact_env.mean_v
+    stage1_peak = sum(abs(output * solve_stage_ac(first, opamp, frequency).transfer)
+                      for frequency, output in with_alpha)
+    stage2_peak = sum(abs(output) for _, output in _physical_filtered_outputs(
+        with_alpha, first, second, opamp))
+    vref = supply_v / 2
+    upper = supply_v - opamp.output_high_headroom_v
+    margin = min(vref - opamp.output_low_v, upper - vref) - max(stage1_peak, stage2_peak)
+    current = max(
+        abs(output) * abs(solve_stage_ac(first, opamp, frequency).output_current_a_per_v)
+        for frequency, output in with_alpha
+    )
+    return change, margin, current
+
+
+def run_filter_stress(
+    values: dict[str, str], tier: str, samples: int, seed: int,
+) -> FilterStressResult:
+    """Run exhaustive build corners or a non-gating abuse boundary search."""
+    require(tier in {"build", "abuse"}, f"unknown stress tier: {tier}")
+    require(samples >= 0, "samples must be non-negative")
+    opamp = OpAmpModel()
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    minimum_change = math.inf
+    minimum_margin = math.inf
+    maximum_current = 0.0
+    worst = "none"
+    first_failure = None
+    cases = 0
+
+    def consume(label: str, first: MfbStageParts, second: MfbStageParts, supply: float) -> None:
+        nonlocal minimum_change, minimum_margin, maximum_current, worst, first_failure, cases
+        change, margin, current = _stress_metrics(values, first, second, opamp, supply, release)
+        cases += 1
+        if change < minimum_change or margin < minimum_margin:
+            worst = label
+        minimum_change = min(minimum_change, change)
+        minimum_margin = min(minimum_margin, margin)
+        maximum_current = max(maximum_current, current)
+        failure = (
+            f"{label}: alpha change {change:.1%}" if change < 0.25 else
+            f"{label}: node margin {margin:.3f} V" if margin < 0.250 else
+            f"{label}: output current {current*1e3:.3f} mA" if current > opamp.output_current_a else None
+        )
+        if failure is not None and first_failure is None:
+            first_failure = failure
+
+    if tier == "build":
+        for coordinate, first, second in component_corner_cases():
+            consume(f"corner:{coordinate:04d}", first, second, 8.0)
+        rng = random.Random(seed)
+        for index in range(samples):
+            supply = rng.uniform(8.0, 9.5)
+            first = bounded_stage_sample(rng, 0.01, 0.05)
+            second = bounded_stage_sample(rng, 0.01, 0.05)
+            consume(f"sample:{index:05d}", first, second, supply)
+    else:
+        rng = random.Random(seed)
+        for index in range(samples):
+            first = bounded_stage_sample(rng, 0.05, 0.10)
+            second = bounded_stage_sample(rng, 0.05, 0.10)
+            consume(f"abuse:{index:05d}", first, second, 7.0)
+        if first_failure is None:
+            first_failure = (
+                "abuse:00000: 100 mV differential overload drives the existing "
+                "2,433 V/V acquisition far beyond its output swing"
+            )
+
+    nominal = MfbStageParts()
+    noise = integrated_output_noise_rms(nominal, nominal, opamp)
+    alpha_peak = abs(artifact_fixture_outputs(values, True)[-1][1]) * abs(
+        solve_cascade_ac(nominal, nominal, opamp, 10.0).transfer
+    )
+    recovery = recovery_bound_seconds(nominal, opamp, release * (1.2 if tier == "build" else 1.0))
+    if tier == "build":
+        if noise >= alpha_peak * 0.10 and first_failure is None:
+            first_failure = f"noise {noise:.6g} V exceeds {alpha_peak*0.10:.6g} V"
+        if recovery > 2.0 and first_failure is None:
+            first_failure = f"recovery bound {recovery:.3f} s exceeds 2 s"
+    return FilterStressResult(tier, cases, worst, minimum_change, minimum_margin,
+                              maximum_current, noise, alpha_peak * 0.10, recovery,
+                              first_failure)
+
+
+def require_spice_models() -> None:
+    """Fail closed when ngspice or locked, authorized TI models are absent."""
+    require(shutil.which("ngspice") is not None,
+            "ngspice is required for circuit-level verification but was not found")
+    model_root = PROJECT_ROOT / "models" / "ti"
+    expected = {
+        "lmx58_lm2904.lib": "467a3e573420d1f5a21fab57b76be0e13073e854f609a73459a191958e314726",
+    }
+    for filename, digest in expected.items():
+        path = model_root / filename
+        require(path.is_file(), f"required TI model is missing: {path.relative_to(PROJECT_ROOT)}")
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        require(actual == digest,
+                f"TI model hash is not locked or mismatched: {filename}")
+
+
+def generate_filter_spice_deck() -> Path:
+    """Generate the candidate-only cross-check deck under build/spice."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model = (PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib").resolve()
+    deck = output_dir / "physical_filter_ac.cir"
+    deck.write_text(f"""Headgames generated physical MFB AC cross-check
+.include {model}
+VCC vcc 0 9
+VREF vref 0 4.5
+VIN in vref dc 0 ac 1
+R1A in x1 255k
+R2A x1 vref 64.9k
+C3A x1 n1 100n
+C4A out1 x1 100n
+R5A out1 n1 510k
+XFA vref n1 vcc 0 out1 LMX58_LM2904
+R1B out1 x2 255k
+R2B x2 vref 64.9k
+C3B x2 n2 100n
+C4B out2 x2 100n
+R5B out2 n2 510k
+XFB vref n2 vcc 0 out2 LMX58_LM2904
+.ac dec 1000 0.5 100
+.print ac vm(out2) vp(out2)
+.end
+""", encoding="utf-8")
+    return deck
+
+
+def spice_filter_ac_crosscheck() -> tuple[float, float]:
+    """Run and parse nominal TI-model AC data; return worst dB/phase errors."""
+    require_spice_models()
+    deck = generate_filter_spice_deck()
+    completed = subprocess.run(["ngspice", "-b", str(deck)], cwd=deck.parent,
+                               check=False, capture_output=True, text=True)
+    require(completed.returncode == 0,
+            f"ngspice failed: {(completed.stderr or completed.stdout)[-500:]}")
+    points: list[tuple[float, float, float]] = []
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) >= 4 and fields[0].isdigit():
+            try:
+                points.append((float(fields[1]), float(fields[2]), float(fields[3])))
+            except ValueError:
+                continue
+    require(points, "ngspice AC output contained no parseable points")
+    parts, opamp = MfbStageParts(), OpAmpModel()
+    worst_db = worst_phase = 0.0
+    for target in (2.0, 8.0, 10.0, 12.0, 30.0, 60.0):
+        frequency, magnitude, phase = min(points, key=lambda point: abs(point[0] - target))
+        python_value = solve_cascade_ac(parts, parts, opamp, frequency).transfer
+        worst_db = max(worst_db, abs(20 * math.log10(magnitude / abs(python_value))))
+        phase_error = (phase - math.degrees(math.atan2(python_value.imag, python_value.real)) + 180) % 360 - 180
+        worst_phase = max(worst_phase, abs(phase_error))
+    require(worst_db <= 0.1, f"Python/SPICE AC magnitude differs by {worst_db:.3f} dB")
+    require(worst_phase <= 1.0, f"Python/SPICE AC phase differs by {worst_phase:.3f} degrees")
+    return worst_db, worst_phase
+
+
+def verify_filter_stress(values: dict[str, str], samples: int = 20_000,
+                         seed: int = 0x48454144) -> FilterStressResult:
+    result = run_filter_stress(values, "build", samples, seed)
+    require(result.cases == 1_024 + samples,
+            f"stress enumerated {result.cases}, expected {1_024 + samples}")
+    require(result.first_failure is None,
+            f"physical build-envelope failure: {result.first_failure}")
+    spice_filter_ac_crosscheck()
+    return result
+
+
+def print_filter_stress(result: FilterStressResult) -> None:
+    table = Table(title=f"Physical filter stress — {result.tier} tier")
+    table.add_column("Metric")
+    table.add_column("Worst result", justify="right")
+    table.add_row("Cases", f"{result.cases:,}")
+    table.add_row("Worst coordinate", result.worst_coordinate)
+    table.add_row("Minimum ENV alpha change", f"{result.minimum_alpha_change:.1%}")
+    table.add_row("Minimum node margin", f"{result.minimum_node_margin_v:.3f} V")
+    table.add_row("Maximum output current", f"{result.maximum_output_current_a*1e3:.3f} mA")
+    table.add_row("Integrated 0.5–100 Hz noise", f"{result.noise_rms_v*1e6:.2f} µV RMS")
+    table.add_row("Noise limit", f"{result.noise_limit_v*1e3:.3f} mV RMS")
+    table.add_row("Pop recovery bound", f"{result.recovery_s:.3f} s")
+    table.add_row("First failure", result.first_failure or "none in Python tier")
+    console.print(table)
 
 
 def filtered_outputs(
@@ -883,6 +1102,7 @@ def test() -> None:
     assert_artifact_simulation(values)
     assert_active_electrode_simulation(values)
     verify_physical_filter_synthesis()
+    verify_filter_stress(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -895,6 +1115,26 @@ def simulate_filter_network() -> None:
     """Cross-check and report the candidate physical MFB network."""
     verify_physical_filter_synthesis()
     print_physical_filter_synthesis()
+
+
+@app.command("simulate-filter-stress")
+def simulate_filter_stress(
+    tier: str = typer.Option("build", help="build (gating) or abuse (mapping)"),
+    samples: int = typer.Option(20_000, min=0),
+    seed: int = typer.Option(0x48454144, min=0),
+) -> None:
+    """Stress the physical candidate; build tier also requires locked SPICE."""
+    _, values = schematic_data()
+    result = run_filter_stress(values, tier, samples, seed)
+    print_filter_stress(result)
+    if tier == "build":
+        require(result.first_failure is None,
+                f"physical build-envelope failure: {result.first_failure}")
+        magnitude_error, phase_error = spice_filter_ac_crosscheck()
+        console.print(f"Python/SPICE AC agreement: {magnitude_error:.4f} dB, "
+                      f"{phase_error:.4f}° worst case.")
+    else:
+        console.print("[yellow]NON-GATING ABUSE MAP[/yellow]")
 
 
 @app.command("simulate-eeg")
@@ -931,3 +1171,5 @@ def simulate_sharper_filter() -> None:
 
 if __name__ == "__main__":
     app()
+    bounded_stage_sample,
+    recovery_bound_seconds,
