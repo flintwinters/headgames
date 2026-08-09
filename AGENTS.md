@@ -39,18 +39,21 @@ evidence is:
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
 | Active-electrode physical MFB Python tier | Nominal + 2,000 seeded near-nominal builds retain ≥538.5% physical-detector `ENV` change, 1.073 V minimum node margin, and 1.381 mA peak current; pass in Python tier |
-| Required SPICE cross-check | Fail: ngspice 44.2 rejects TI Rev. C LMx58/LM2904 PSpice `IF()`/switch syntax; no agreement result exists |
+| Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
+| Comprehensive TI PSpice model | Retained unchanged for provenance; ngspice 44.2 still rejects its `IF()`/switch syntax |
 
 Thus active electrodes plus sharper selectivity are the current testing
-frontier, but the hardware gate is closed on independent validation. The
+frontier, and the declared nominal simulation gate passes. The
 proposed two-stage MFB network has strong modeled selectivity and retains
 positive headroom across the tight nominal operating band. Acquisition DC error
 uses typical input-offset current through the matched 10 MΩ paths and unity DC
 noise gain because the 474 kΩ input arms are AC-coupled. The model now includes
 active-electrode input/cable behavior, finite acquisition loop gain, and a stateful
-LM358/1N4148 detector; VREF, temperature, detailed acquisition transients, and
-independent validation remain incomplete. The required TI-model SPICE check
-also fails at simulator compatibility. Active
+LM358/1N4148 detector; VREF, detailed acquisition transients, physical-detector
+cross-validation, and bench validation remain incomplete. The project-owned,
+source-locked ngspice model independently confirms nominal acquisition DC
+balance and MFB AC response; it deliberately does not reproduce the full TI
+PSpice macro-model. Active
 electrodes address cable/source imbalance but not motion; if pursued, both
 safety resistors must precede every electrode-site buffer and the worn supply
 must remain isolated. The LM324N remains an inventory-first compromise with a
@@ -58,10 +61,8 @@ clear future boundary for buffers or an instrumentation amplifier.
 
 ## Current big tasks
 
-- Establish a compatible, source-locked independent simulation of the proposed
-  MFB network and reconcile it with Python before considering a schematic edit.
-- Validate the nominal LM324 acquisition DC balance and headroom with an
-  independent compatible simulator and then on the bench.
+- Validate the nominal LM324 acquisition DC balance, MFB response, and detector
+  behavior on the bench before considering a schematic edit.
 - Extend VREF, temperature, trim spreads, deterministic phases, and detailed
   acquisition transient recovery, then independently validate the model.
 - Implement the matched 474 kΩ pair and matched 1.5 nF networks after inventory

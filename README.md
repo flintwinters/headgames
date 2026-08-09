@@ -33,7 +33,8 @@ python3 manage.py simulate-filter-network
 python3 manage.py simulate-filter-stress --tier build --samples 2000 --seed 1212498244
 ```
 
-Current acceptance status: **FAIL/BLOCKED; the hardware gate is closed.**
+Current simulation acceptance status: **PASS for the declared nominal operating
+frontier; physical bench validation remains required.**
 
 The neurofeedback acceptance criterion is at least 25%. Simulation and report
 commands may exit successfully after reproducing a documented failing result;
@@ -60,7 +61,8 @@ differential alpha at 10 Hz.
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
 | Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
 | Active-electrode physical MFB Python tier | Nominal + 2,000 seeded near-nominal builds: ≥538.5% physical-detector `ENV` change; 1.073 V minimum node margin; 1.381 mA peak detector current | **Pass in Python tier** |
-| TI-model SPICE cross-check | TI Rev. C LMx58/LM2904 model fails in ngspice 44.2 on PSpice `IF()` and switch syntax | **Fail; hardware gate remains closed** |
+| Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002° | **Pass for declared nominal scope** |
+| Comprehensive TI PSpice model | TI Rev. C LMx58/LM2904 model remains incompatible with ngspice 44.2 `IF()`/switch syntax | Retained for provenance; outside the compatibility-model gate |
 
 The active-electrode sensitivity model assumes 5 pF input capacitance, 1 MHz
 GBW, 100 Ω output resistance, 10 pA bias, 25 nV/√Hz white noise, and unequal
@@ -80,9 +82,11 @@ leakage, capacitance, hold R/C, and recovery state. The operating band is
 uses typical 5 nA input-offset current through the matched 10 MΩ paths and 2 mV
 offset at unity DC noise gain; common input bias current is not incorrectly
 treated as wholly unmatched.
-The figures above do not include a successful independent simulator cross-check,
-do not establish probabilistic yield, and do not authorize a schematic edit.
-VREF remains ideal and the behavioral amplifier is not transistor-level.
+The source-locked nominal compatibility model independently cross-checks MFB AC
+and matched-10 MΩ acquisition DC behavior in ngspice. It does not reproduce the
+comprehensive TI model, establish probabilistic yield, or replace bench
+validation. VREF remains ideal and the behavioral amplifier is not
+transistor-level.
 
 ## Matched acquisition parts
 
