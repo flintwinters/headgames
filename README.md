@@ -32,6 +32,8 @@ python3 manage.py test
 python3 manage.py simulate-sonification --candidate alpha --electrode wet
 python3 manage.py simulate-sonification-frontier --electrode wet --samples 2001 --seed 1212498244 --phase-steps 16
 python3 manage.py synthesize-cable-isolation
+python3 manage.py characterize-buffer-transient
+python3 manage.py validate-selected-spreads --samples 16 --phase-steps 16
 python3 manage.py accept
 ```
 
@@ -46,10 +48,17 @@ frequency plus duty, sidebands, harmonics, speaker current, clipping, latching,
 and node margins. The current nominal wet/alpha run executes all 16 requested
 phases but fails its alpha-modulation gate; no candidate is selected.
 
+A deterministic selected-path spread checkpoint executes 17 builds × 16 phases
+at the speaker-current endpoint. All 17 builds fail alpha modulation; the worst
+alpha/carrier result is 0.09%, peak modeled output/load current is 128.1 mA,
+minimum modeled node margin is −0.949 V, and no modeled build clips or latches.
+These are behavioral-model results, not LM386 distortion or current-limit proof.
+
 The TI LMx58 transient sweep selects the smallest passing stocked cable
-isolation resistor, 8.2 kΩ, with 0.0% measured overshoot and 8.4 µs worst
-settling across 150/250 pF loads. A separate loop-return or bench measurement
-is still required for the 45° phase-margin gate.
+isolation resistor, 8.2 kΩ. The actual 8.2 kΩ ±5% and 150/250 pF transient
+corners show 0.0% measured overshoot and 8.9 µs worst settling in the nominal
+TI macro-model. Phase margin remains unresolved: valid loop-break fixtures do
+not converge in that model, and TI provides no process/temperature corner set.
 
 The frontier runner executes the requested physical builds and phases at the
 speaker-current endpoint, but it has not produced a verified passing campaign.

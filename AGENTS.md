@@ -48,10 +48,11 @@ Current limited block-level evidence is:
 
 | Model | Result |
 |---|---|
-| Stateful oscillator prototype | Produces a nominal carrier near 682 Hz; not validated with the complete electrode-to-speaker stimulus or physical spreads |
-| LM386 behavioral prototype | Implements nominal gain, input resistance, bandwidth, clipping, and load; not yet sufficient for output-power or nonlinear claims |
-| TI cable transient | 100 Ω fails the prior 250 pF overshoot gate; the smallest passing stocked value is 8.2 kΩ with 0.0% measured overshoot and 8.4 µs settling |
+| Stateful oscillator prototype | Produces a nominal carrier near 682 Hz; 17 selected-path builds did not latch, but negative modeled node margin occurs under declared spreads |
+| LM386 behavioral prototype | Uses gain 20, 50 kΩ input, 300 kHz bandwidth, conservative 250–325 mW clipping bounds, and 8 Ω ±10% load; 0/17 builds clipped, but TI supplies no LM386 device model so distortion/current-limit/recovery claims remain unresolved |
+| TI cable transient | Actual 8.2 kΩ ±5% and 150/250 pF corners pass the nominal TI macro-model with 0.0% overshoot and 8.9 µs worst settling; phase margin remains unresolved because valid loop-break fixtures do not converge and TI supplies no process/temperature corners |
 | End-to-end nominal wet/alpha run | Executes all 16 requested phases at the speaker-current endpoint, but fails: worst alpha/carrier modulation is 0.24% versus the 1% gate |
+| Selected wet/alpha spread run | Deterministically executes 17 builds × 16 phases; all 17 fail alpha modulation, worst alpha/carrier is 0.09%, peak modeled output/load current is 128.1 mA, and minimum modeled node margin is −0.949 V |
 
 The LM386 model is bounded by its official gain-20, 50 kΩ input, and 300 kHz
 bandwidth characteristics. Its nonlinear output claims remain bench-gated.
@@ -60,8 +61,11 @@ and two-MFB implementations are historical evidence, not hardware candidates.
 
 ## Current big tasks
 
-- Establish loop-return phase margin for the selected 8.2 kΩ cable isolation.
-- Finish hardening the genuine end-to-end electrode-to-speaker-current experiment.
+- Establish loop-return phase margin for the selected 8.2 kΩ cable isolation;
+  the available TI macro-model cannot provide this answer, so new qualified
+  device-corner models or an eventual loop-injection measurement are required.
+- Expand the genuine end-to-end electrode-to-speaker-current experiment beyond
+  the current 17-build deterministic spread checkpoint.
   Every requested seeded build and phase combination must exercise every
   relevant independent stocked part and the complete simultaneous stimulus.
 - Select the weighting topology and synthesize `R6` only after that valid

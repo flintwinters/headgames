@@ -547,6 +547,7 @@ def nominal_sonification_build(values: dict[str, str], electrode: str = "wet"
         resistance(values["R8"]), capacitance(values["C5"]),
         capacitance(values["C6"]), resistance(values["R10"]),
         capacitance(values["C7"]), 9.0, 4.5,
+        0.020, 2.0, 20.0, 50_000.0, 300_000.0, 0.250, 8.0,
     )
 
 
@@ -556,16 +557,25 @@ def sampled_sonification_build(values: dict[str, str], electrode: str,
     nominal = nominal_sonification_build(values, electrode)
     def move(value: float, tolerance: float) -> float:
         return value*(1+rng.uniform(-tolerance, tolerance))
+    matched_input_scale = 1+rng.uniform(-0.01, 0.01)
+    matched_feedback_scale = 1+rng.uniform(-0.01, 0.01)
     def channel(item: ChannelParts) -> ChannelParts:
         return replace(
             item,
+            electrode_series_ohm=move(item.electrode_series_ohm, 0.20),
+            electrode_charge_transfer_ohm=move(item.electrode_charge_transfer_ohm, 0.20),
+            electrode_interface_f=move(item.electrode_interface_f, 0.20),
+            buffer_input_f=move(item.buffer_input_f, 0.50),
+            buffer_bandwidth_hz=rng.uniform(0.5e6, 2.0e6),
+            buffer_noise_v_rt_hz=move(item.buffer_noise_v_rt_hz, 0.25),
             safety_a_ohm=move(item.safety_a_ohm, 0.05),
             safety_b_ohm=move(item.safety_b_ohm, 0.05),
-            input_ohm=move(item.input_ohm, 0.01),
+            input_ohm=item.input_ohm*matched_input_scale,
             input_f=move(item.input_f, 0.10),
-            feedback_ohm=move(item.feedback_ohm, 0.01),
+            feedback_ohm=item.feedback_ohm*matched_feedback_scale,
             feedback_f=move(item.feedback_f, 0.10),
             cable_isolation_ohm=move(item.cable_isolation_ohm, 0.05),
+            cable_f=move(item.cable_f, 0.20),
         )
     synthesis = cached_mfb_synthesis(tuple(sorted(values.items())))
     stages = []
@@ -591,6 +601,12 @@ def sampled_sonification_build(values: dict[str, str], electrode: str,
         r10_zobel_ohm=move(nominal.r10_zobel_ohm, 0.05),
         c7_zobel_f=move(nominal.c7_zobel_f, 0.10),
         supply_v=supply, vref_v=supply/2+rng.uniform(-50e-3, 50e-3),
+        oscillator_low_v=rng.uniform(0.005, 0.100),
+        oscillator_high_headroom_v=rng.uniform(1.5, 2.5),
+        lm386_input_ohm=move(nominal.lm386_input_ohm, 0.20),
+        lm386_bandwidth_hz=move(nominal.lm386_bandwidth_hz, 0.20),
+        lm386_output_power_w=rng.uniform(0.250, 0.325),
+        speaker_ohm=move(nominal.speaker_ohm, 0.10),
     )
 
 
@@ -650,6 +666,20 @@ def verify_sonification_integrity(values: dict[str, str]) -> None:
     require(left == right, "physical sonification build is not deterministic")
     require(left.meas.safety_a_ohm != left.meas.safety_b_ohm,
             "independent safety-resistor leaves moved together")
+    require(left.meas.input_ohm/left.ref.input_ohm
+            == build.meas.input_ohm/build.ref.input_ohm,
+            "measured R15/R21 pair did not move together")
+    require(left.meas.feedback_ohm/left.ref.feedback_ohm
+            == build.meas.feedback_ohm/build.ref.feedback_ohm,
+            "matched R12/R22 pair did not move together")
+    require(left.meas.electrode_series_ohm != build.meas.electrode_series_ohm,
+            "electrode spread was not exercised")
+    require(left.meas.cable_f != build.meas.cable_f,
+            "cable-capacitance spread was not exercised")
+    require(left.lm386_output_power_w != build.lm386_output_power_w,
+            "LM386 output-power bound was not exercised")
+    require(left.speaker_ohm != build.speaker_ohm,
+            "speaker-resistance spread was not exercised")
     require(left.mfb[0] != left.mfb[1],
             "independent MFB stages moved together")
 
@@ -666,6 +696,16 @@ def _sonification_frontier_case(arguments):
     delay = max(sonification_group_delay(build, candidate, 8+0.1*index)
                 for index in range(41))
     return candidate.name, r6, build_index, result, delay
+
+
+def _selected_spread_case(arguments):
+    """Run one picklable selected-path build with deterministic endpoint noise."""
+    build_index, build, candidate, phase_steps, seed = arguments
+    result = simulate_build(
+        build, candidate, phase_steps,
+        noise_seed=seed ^ (build_index*0x85EBCA6B),
+    )
+    return build_index, result
 
 
 def active_electrode_channels(electrode: str | None = None
@@ -709,7 +749,7 @@ def active_electrode_channels(electrode: str | None = None
 
 
 def verify_electrode_profiles() -> None:
-    """Check declared impedances and the isolated cable-driver stability gate."""
+    """Check declared electrode impedances without claiming loop stability."""
     ranges = {"wet": (20_000.0, 26_000.0), "dry": (40_000.0, 52_000.0)}
     for name, (low, high) in ranges.items():
         profile = electrode_profile(name)
@@ -718,12 +758,6 @@ def verify_electrode_profiles() -> None:
                 f"{name} electrode impedance at 10 Hz is {impedances[1]:.0f} ohm")
         require(impedances[0] >= impedances[1] >= impedances[2],
                 f"{name} electrode impedance is not monotonic")
-    for cable_pf in (150.0, 250.0):
-        stability = follower_cable_stability(1_000_000.0, 100.0, cable_pf * 1e-12)
-        require(stability.phase_margin_deg >= 45.0,
-                f"LM358 cable phase margin is {stability.phase_margin_deg:.1f} degrees")
-        require(stability.overshoot_fraction <= 0.20,
-                f"LM358 cable overshoot is {stability.overshoot_fraction:.1%}")
 
 
 def active_artifact_fixture_outputs(
@@ -2029,6 +2063,60 @@ def simulate_sonification(
         console.print("[yellow]Dry-electrode verdict: INFORMATIONAL ONLY.[/yellow]")
 
 
+@app.command("validate-selected-spreads")
+def validate_selected_spreads(
+    samples: int = typer.Option(32, min=1),
+    seed: int = typer.Option(0x48454144, min=0),
+    phase_steps: int = typer.Option(16, min=16),
+    workers: int = typer.Option(4, min=1, max=32),
+) -> None:
+    """Run the selected wet path across explicit behavioral physical spreads."""
+    _, values = schematic_data()
+    candidate = next(item for item in CANDIDATES if item.name == "alpha")
+    rng = random.Random(seed)
+    builds = [nominal_sonification_build(values, "wet")]
+    builds.extend(sampled_sonification_build(values, "wet", rng)
+                  for _ in range(samples))
+    tasks = [
+        (index, build, candidate, phase_steps, seed)
+        for index, build in enumerate(builds)
+    ]
+    results = []
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        for build_index, result in executor.map(
+                _selected_spread_case, tasks, chunksize=1):
+            require(result.phases_executed == phase_steps,
+                    f"build {build_index}: phase coverage mismatch")
+            results.append((build_index, result))
+    expected = (samples+1)*phase_steps
+    executed = sum(result.phases_executed for _, result in results)
+    require(executed == expected,
+            f"executed {executed} selected-path phases, expected {expected}")
+    worst_alpha = min(result.worst.alpha_to_carrier for _, result in results)
+    maximum_current = max(result.worst.peak_lm386_current_a for _, result in results)
+    minimum_margin = min(result.worst.minimum_node_margin_v for _, result in results)
+    failures = [(index, result.first_failure) for index, result in results
+                if result.first_failure is not None]
+    clipped_builds = sum(result.worst.clipped for _, result in results)
+    latched_builds = sum(result.worst.latched for _, result in results)
+    console.print(
+        f"Executed exactly {samples+1} builds × {phase_steps} phases = {expected} "
+        "complete wet-electrode speaker-current cases."
+    )
+    console.print(
+        f"Worst alpha/carrier {worst_alpha:.2%}; peak modeled LM386/load current "
+        f"{maximum_current*1e3:.1f} mA; minimum modeled node margin "
+        f"{minimum_margin:.3f} V."
+    )
+    console.print(
+        f"Behavioral clipping in {clipped_builds}/{len(results)} builds; "
+        f"oscillator latching in {latched_builds}/{len(results)} builds."
+    )
+    require(not failures,
+            f"selected spread campaign failed {len(failures)}/{len(results)} builds; "
+            f"first is build {failures[0][0]}: {failures[0][1]}")
+
+
 @app.command("simulate-sonification-frontier")
 def simulate_sonification_frontier(
     electrode: str = typer.Option("wet", help="wet gating or dry informational profile"),
@@ -2148,6 +2236,32 @@ def characterize_ti_model_command() -> None:
             "TI cable overshoot exceeds 20%")
     require(max(settling_150, settling_250) <= 1e-3,
             "TI cable settling exceeds 1 ms")
+
+
+@app.command("characterize-buffer-transient")
+def characterize_buffer_transient_command() -> None:
+    """Exercise actual 8.2 kΩ buffer transient corners without claiming margin."""
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
+    isolation = resistance(values["R24"])
+    results = [
+        spice_ti_cable_transient(cable_pf, isolation*riso_scale)
+        for riso_scale in (0.95, 1.05)
+        for cable_pf in (150.0, 250.0)
+    ]
+    require(len(results) == 4, "TI transient corner coverage is incomplete")
+    overshoot = max(result[0] for result in results)
+    settling = max(result[1] for result in results)
+    require(overshoot <= 0.20, f"TI cable overshoot is {overshoot:.1%}")
+    require(settling <= 1e-3, f"TI cable settling is {settling*1e6:.1f} us")
+    console.print(
+        "[green]NOMINAL TI TRANSIENT PASS[/green]: 4 Riso/cable corners; "
+        f"worst overshoot {overshoot:.1%}, settling {settling*1e6:.1f} µs."
+    )
+    console.print(
+        "[yellow]PHASE MARGIN UNRESOLVED:[/yellow] the TI macro-model does not "
+        "converge with a valid loop break and has no process/temperature corners."
+    )
 
 
 @app.command("synthesize-cable-isolation")

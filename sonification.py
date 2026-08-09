@@ -81,6 +81,13 @@ class SonificationBuild:
     c7_zobel_f: float
     supply_v: float
     vref_v: float
+    oscillator_low_v: float
+    oscillator_high_headroom_v: float
+    lm386_gain: float
+    lm386_input_ohm: float
+    lm386_bandwidth_hz: float
+    lm386_output_power_w: float
+    speaker_ohm: float
 
 
 @dataclass(frozen=True)
@@ -286,12 +293,15 @@ def _speaker_current_core(
     r3_ohm: float, r4_ohm: float, r6_ohm: float, r9_ohm: float, c10_f: float,
     r5_audio_ohm: float, r8_audio_ohm: float, c5_audio_f: float,
     c6_output_f: float, r10_zobel_ohm: float, c7_zobel_f: float,
+    oscillator_low_v: float, oscillator_high_headroom_v: float,
+    lm386_gain: float, lm386_input_ohm: float, lm386_bandwidth_hz: float,
+    lm386_output_power_w: float, speaker_ohm: float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool, float, float]:
     """JIT kernel for the explicit nonlinear state updates."""
     dt = 1/sample_rate_hz
     lanes, samples = control.shape
-    low = 0.020
-    high = supply_v-2.0
+    low = oscillator_low_v
+    high = supply_v-oscillator_high_headroom_v
     output = np.full(lanes, high)
     timing = np.full(lanes, vref)
     lm_output = np.full(lanes, vref)
@@ -303,16 +313,16 @@ def _speaker_current_core(
     high_state = np.empty(control.shape, dtype=np.bool_)
     minimum_margin = math.inf
     clipped = False
-    lm_alpha = 1-math.exp(-dt*2*math.pi*300_000.0)
-    input_load = 1/(1/r8_audio_ohm + 1/50_000.0)
+    lm_alpha = 1-math.exp(-dt*2*math.pi*lm386_bandwidth_hz)
+    input_load = 1/(1/r8_audio_ohm + 1/lm386_input_ohm)
     attenuation = input_load/(r5_audio_ohm+input_load)
     input_cap_alpha = 1-math.exp(-dt/((r5_audio_ohm+input_load)*c5_audio_f))
     timing_alpha = 1-math.exp(-dt/(r9_ohm*c10_f))
-    output_cap_alpha = 1-math.exp(-dt/(8.0*c6_output_f))
+    output_cap_alpha = 1-math.exp(-dt/(speaker_ohm*c6_output_f))
     zobel_alpha = 1-math.exp(-dt/(r10_zobel_ohm*c7_zobel_f))
     peak_current = 0.0
     previous = output.copy()
-    max_peak = math.sqrt(2*0.5*8.0)
+    max_peak = math.sqrt(2*lm386_output_power_w*speaker_ohm)
     for index in range(samples):
         for lane in range(lanes):
             threshold = (vref/r3_ohm + output[lane]/r4_ohm
@@ -338,7 +348,7 @@ def _speaker_current_core(
             carrier_ac = output[lane]-(high+low)/2
             input_coupling_v[lane] += input_cap_alpha*(carrier_ac-input_coupling_v[lane])
             input_ac = attenuation*(carrier_ac-input_coupling_v[lane])
-            target = vref + 20*input_ac
+            target = vref + lm386_gain*input_ac
             if target < vref-max_peak:
                 target = vref-max_peak
                 clipped = True
@@ -347,7 +357,7 @@ def _speaker_current_core(
                 clipped = True
             lm_output[lane] += lm_alpha*(target-lm_output[lane])
             coupling_cap_v[lane] += output_cap_alpha*((lm_output[lane]-vref)-coupling_cap_v[lane])
-            speaker[lane, index] = ((lm_output[lane]-vref)-coupling_cap_v[lane])/8.0
+            speaker[lane, index] = ((lm_output[lane]-vref)-coupling_cap_v[lane])/speaker_ohm
             zobel_cap_v[lane] += zobel_alpha*((lm_output[lane]-vref)-zobel_cap_v[lane])
             total_current = speaker[lane, index] + ((lm_output[lane]-vref)-zobel_cap_v[lane])/r10_zobel_ohm
             peak_current = max(peak_current, abs(total_current))
@@ -367,6 +377,9 @@ def _speaker_current(control: np.ndarray, build: SonificationBuild,
         build.r6_ohm, build.r9_ohm, build.c10_f, build.r5_audio_ohm,
         build.r8_audio_ohm, build.c5_audio_f, build.c6_output_f,
         build.r10_zobel_ohm, build.c7_zobel_f,
+        build.oscillator_low_v, build.oscillator_high_headroom_v,
+        build.lm386_gain, build.lm386_input_ohm, build.lm386_bandwidth_hz,
+        build.lm386_output_power_w, build.speaker_ohm,
     )
 
 
@@ -538,8 +551,8 @@ def simulate_build(build: SonificationBuild, candidate: SonificationCandidate,
     artifact_control += build.vref_v
     combined_control += build.vref_v
     all_control = np.concatenate((silence_control, artifact_control, combined_control))
-    control_upper = build.supply_v-2.0
-    control_margin = float(np.min(np.minimum(all_control-0.020,
+    control_upper = build.supply_v-build.oscillator_high_headroom_v
+    control_margin = float(np.min(np.minimum(all_control-build.oscillator_low_v,
                                              control_upper-all_control)))
     control_slew = float(np.max(np.abs(np.diff(all_control, axis=1)))*sample_rate_hz)
     currents, edges, states, clipped, peak_current, margin = _speaker_current(
