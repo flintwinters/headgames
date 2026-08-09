@@ -189,8 +189,8 @@ def assert_precision_detector(
     assert values["U1"].startswith("LM358N"), (
         "precision detector must use the inventory LM358N"
     )
-    assert values["D1"].startswith("1N5711"), (
-        "detector must retain the characterized low-level Schottky part"
+    assert values["D1"].startswith("1N4148"), (
+        "detector must use the common low-leakage small-signal silicon diode"
     )
     assert ("U1", "3") in alpha_net, "U1A non-inverting input must sense ALPHA"
     assert ("D1", "2") in drive_net, "D1 anode must be driven inside U3A feedback"

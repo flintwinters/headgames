@@ -22,8 +22,10 @@ These resistors do not relax the isolated-battery-only operating rule.
 An LM358N precision peak detector converts filtered alpha amplitude into
 `ENV`: U3A compensates the forward drop of D1 inside its feedback loop, R12/C9
 hold the raw envelope relative to VREF, and U3B buffers that node before R16
-controls U1D. D1 remains specifically a 1N5711 low-level Schottky; do not
-silently substitute a generic power Schottky with different behavior.
+controls U1D. D1 is a common 1N4148 small-signal silicon diode: the active
+feedback loop compensates its forward drop, while its low reverse leakage keeps
+the envelope release dominated by R12/C9. Do not substitute a leaky power
+Schottky, which can materially alter the held envelope.
 
 The analog feedback path must remain entirely analog. Future digital logging
 must be electrically safe and outside that path. The LM324N is an
