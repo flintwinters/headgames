@@ -17,7 +17,7 @@ speaker stage. The analog feedback path must remain entirely analog; any future
 logging stays electrically safe and outside it.
 
 MEAS and REF each enter through two independent 100 kΩ series resistors before
-the two channels of an electrode-site OPA2192; BIAS uses two independent 1 MΩ
+the two channels of an electrode-site LM358N from inventory; BIAS uses two independent 1 MΩ
 resistors. The active assembly boundary has exactly five conductors: buffered
 MEAS, buffered REF, BIAS, isolated VCC, and isolated return. These do not relax
 the isolated-battery rule. While worn, remove grounded scopes, bench supplies, USB, chargers,
@@ -40,7 +40,7 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| OPA2192 active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement retain ≥904.5% `ENV` change, 1.072 V minimum node margin, and 2.208 mA peak current; pass, but not a yield estimate |
+| Inventory-only active-electrode physical MFB Python tier | Stocked LM358N buffer; nominal + 2,000 seeded builds with independent ±1% R/±5% C movement retain ≥538.5% `ENV` change, 1.073 V node margin, and 1.381 mA peak current; pass, not a yield estimate |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
 | Comprehensive TI PSpice model | Retained unchanged for provenance; ngspice 44.2 still rejects its `IF()`/switch syntax |
 
@@ -68,7 +68,7 @@ clear future boundary for buffers or an instrumentation amplifier.
 ## Current big tasks
 
 - Reconcile the physical model and native KiCad circuit block by block: select
-  and model a real active-electrode amplifier, implement the validated MFB
+  and model only inventory-stocked parts, implement the validated MFB
   sections in KiCad, and either model carrier/audio or explicitly end both
   representations at `ENV`.
 - Validate the nominal LM324 acquisition DC balance, MFB response, and detector

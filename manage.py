@@ -70,7 +70,8 @@ FRONTIER_RESISTOR_BAND = 0.01
 FRONTIER_CAPACITOR_BAND = 0.05
 FRONTIER_SAMPLES = 2_000
 DETECTOR_DIODE = DiodeModel()
-ACTIVE_ELECTRODE_IC = "OPA2192"
+INVENTORY_AMPLIFIER_ICS = frozenset({"LM324N", "LM358N"})
+ACTIVE_ELECTRODE_IC = "LM358N"
 ACTIVE_ELECTRODE_CONDUCTORS = (
     "MEAS_BUFFERED", "REF_BUFFERED", "BIAS", "VCC_ISOLATED", "GND_ISOLATED",
 )
@@ -482,14 +483,14 @@ def frontier_artifact_fixture_outputs(
 
 def active_electrode_channels(
 ) -> tuple[ActiveElectrodeChannel, ActiveElectrodeChannel]:
-    """Return the selected OPA2192 dual buffer and unequal cable loads."""
+    """Return the stocked LM358N dual buffer and unequal cable loads."""
     shared = {
         "amplifier_name": ACTIVE_ELECTRODE_IC,
-        "input_capacitance": 6.4e-12,
-        "gain_bandwidth_hz": 10_000_000.0,
+        "input_capacitance": 5e-12,
+        "gain_bandwidth_hz": 1_000_000.0,
         "output_resistance": 100.0,
-        "input_bias_current": 20e-12,
-        "white_voltage_noise": 10.5e-9,
+        "input_bias_current": 45e-9,
+        "white_voltage_noise": 40e-9,
     }
     return (
         ActiveElectrodeChannel(
@@ -607,8 +608,10 @@ def print_artifact_simulation(values: dict[str, str]) -> None:
 def verify_active_electrode_baseline_regression(values: dict[str, str]) -> None:
     """Regression-check the candidate active electrode against the same fixture."""
     meas_channel, ref_channel = active_electrode_channels()
-    require(meas_channel.amplifier_name == ref_channel.amplifier_name == "OPA2192",
+    require(meas_channel.amplifier_name == ref_channel.amplifier_name == "LM358N",
             "active buffer IC changed")
+    require(meas_channel.amplifier_name in INVENTORY_AMPLIFIER_ICS,
+            "active buffer must be selected from stocked amplifier ICs")
     require(ACTIVE_ELECTRODE_CONDUCTORS == (
         "MEAS_BUFFERED", "REF_BUFFERED", "BIAS", "VCC_ISOLATED", "GND_ISOLATED",
     ), "five-conductor active electrode boundary changed")
@@ -708,8 +711,8 @@ def print_active_electrode_simulation(values: dict[str, str]) -> None:
     )
     assumptions.add_row(
         "Input bias current",
-        f"{meas_channel.input_bias_current * 1e12:g} pA",
-        f"{ref_channel.input_bias_current * 1e12:g} pA",
+        f"{meas_channel.input_bias_current * 1e9:g} nA",
+        f"{ref_channel.input_bias_current * 1e9:g} nA",
     )
     assumptions.add_row(
         "White voltage noise",
