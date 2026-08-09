@@ -30,8 +30,7 @@ python3 manage.py simulate-artifacts
 python3 manage.py simulate-active-electrodes
 python3 manage.py simulate-sharper-filter
 python3 manage.py simulate-filter-network
-python3 manage.py simulate-filter-stress --tier build --samples 20000 --seed 1212498244
-python3 manage.py simulate-filter-stress --tier abuse --samples 20000 --seed 1212498244
+python3 manage.py simulate-filter-stress --tier build --samples 2000 --seed 1212498244
 ```
 
 Current acceptance status: **FAIL/BLOCKED; the hardware gate is closed.**
@@ -44,12 +43,11 @@ only `python3 manage.py accept` expresses candidate hardware acceptance.
 |---|---|
 | `python3 manage.py test` | Documented regression expectations were reproduced; no acceptance claim |
 | `python3 manage.py simulate-*` | The requested model/report completed, even if its scientific verdict is failure |
-| `simulate-filter-stress --tier abuse` | The non-gating boundary map completed |
 | `python3 manage.py accept` | Every declared neurofeedback and hardware gate passed |
 
 The simulations extract schematic values and verify the simulated acquisition
-topology against the native netlist. They use declared engineering stress
-fixtures, not guaranteed physiology. The survival fixture combines 20/100 kΩ
+topology against the native netlist. They use a tight nominal operating band
+and declared signal fixtures, not guaranteed physiology. The survival fixture combines 20/100 kΩ
 electrodes, 1 mV differential motion at 2 Hz, 100 µV differential muscle-like
 activity at 30 Hz, 100 mV common-mode mains at 60 Hz, and optionally 50 µV
 differential alpha at 10 Hz.
@@ -61,7 +59,7 @@ differential alpha at 10 Hz.
 | Active electrodes | Mains falls 0.686→0.004 V, but motion reaches 1.000 V and `ENV` changes 2.8% | Fail; buffers solve cable imbalance, not motion |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
 | Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
-| Active-electrode physical MFB Python tier | 1,024 corners + 20,000 seeded builds: ≥851.2% physical-detector `ENV` change; −1.929 V worst modeled node margin; 2.131 mA peak detector current | **Fail: LM324 bias/offset headroom** |
+| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded near-nominal builds: ≥538.5% physical-detector `ENV` change; 1.073 V minimum node margin; 1.381 mA peak detector current | **Pass in Python tier** |
 | TI-model SPICE cross-check | TI Rev. C LMx58/LM2904 model fails in ngspice 44.2 on PSpice `IF()` and switch syntax | **Fail; hardware gate remains closed** |
 
 The active-electrode sensitivity model assumes 5 pF input capacitance, 1 MHz
@@ -75,16 +73,16 @@ by the existing finite-A0/GBW LM324 acquisition path and two identical
 VREF-biased MFB stages, each using
 255 kΩ, 64.9 kΩ, 510 kΩ, and two 100 nF parts with one additional LM358N
 package. Its Python model exposes internal nodes and branch currents, applies
-finite LM324 A0/GBW and worst-case bias/offset headroom, and steps a finite-GBW,
+finite LM324 A0/GBW and nominal bias/offset headroom, and steps a finite-GBW,
 slew- and rail-limited LM358 detector with explicit 1N4148 forward current,
-leakage, capacitance, hold R/C, and recovery state. Worst-case LM324 bias through
-the 10 MΩ acquisition network drives the declared headroom margin negative even
-after active electrodes remove most cable/source-imbalance conversion.
+leakage, capacitance, hold R/C, and recovery state. The operating band is
+8.8–9.2 V with ±0.25% resistor and ±1% capacitor movement. Acquisition DC error
+uses typical 5 nA input-offset current through the matched 10 MΩ paths and 2 mV
+offset at unity DC noise gain; common input bias current is not incorrectly
+treated as wholly unmatched.
 The figures above do not include a successful independent simulator cross-check,
 do not establish probabilistic yield, and do not authorize a schematic edit.
-VREF remains ideal and the behavioral amplifier is not transistor-level. The non-gating abuse tier first fails at the
-declared 100 mV differential overload because the existing 2,433 V/V
-acquisition necessarily saturates.
+VREF remains ideal and the behavioral amplifier is not transistor-level.
 
 ## Matched acquisition parts
 

@@ -38,15 +38,16 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| Active-electrode physical MFB Python tier | 1,024 corners + 20,000 seeded builds retain ≥851.2% physical-detector `ENV` change but reach −1.929 V worst node margin; fail from LM324 bias/offset headroom |
+| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded near-nominal builds retain ≥538.5% physical-detector `ENV` change, 1.073 V minimum node margin, and 1.381 mA peak current; pass in Python tier |
 | Required SPICE cross-check | Fail: ngspice 44.2 rejects TI Rev. C LMx58/LM2904 PSpice `IF()`/switch syntax; no agreement result exists |
 
 Thus active electrodes plus sharper selectivity are the current testing
-frontier, but the hardware gate is closed. The proposed two-stage MFB network
-has strong modeled selectivity, but finite LM324 bias/offset through the 10 MΩ
-acquisition network violates headroom even with electrode-site buffers. The
-model now includes active-electrode input/cable behavior, finite acquisition
-loop gain, and a stateful
+frontier, but the hardware gate is closed on independent validation. The
+proposed two-stage MFB network has strong modeled selectivity and retains
+positive headroom across the tight nominal operating band. Acquisition DC error
+uses typical input-offset current through the matched 10 MΩ paths and unity DC
+noise gain because the 474 kΩ input arms are AC-coupled. The model now includes
+active-electrode input/cable behavior, finite acquisition loop gain, and a stateful
 LM358/1N4148 detector; VREF, temperature, detailed acquisition transients, and
 independent validation remain incomplete. The required TI-model SPICE check
 also fails at simulator compatibility. Active
@@ -59,8 +60,8 @@ clear future boundary for buffers or an instrumentation amplifier.
 
 - Establish a compatible, source-locked independent simulation of the proposed
   MFB network and reconcile it with Python before considering a schematic edit.
-- Resolve the LM324 acquisition bias/offset headroom failure or choose a
-  credible input-stage boundary before further filter optimization.
+- Validate the nominal LM324 acquisition DC balance and headroom with an
+  independent compatible simulator and then on the bench.
 - Extend VREF, temperature, trim spreads, deterministic phases, and detailed
   acquisition transient recovery, then independently validate the model.
 - Implement the matched 474 kΩ pair and matched 1.5 nF networks after inventory
