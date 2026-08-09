@@ -24,6 +24,7 @@ Use the single durable entrypoint:
 
 ```sh
 python3 manage.py test
+python3 manage.py accept
 python3 manage.py simulate-eeg
 python3 manage.py simulate-artifacts
 python3 manage.py simulate-active-electrodes
@@ -33,12 +34,25 @@ python3 manage.py simulate-filter-stress --tier build --samples 20000 --seed 121
 python3 manage.py simulate-filter-stress --tier abuse --samples 20000 --seed 1212498244
 ```
 
-The simulations extract schematic values and use declared engineering stress
+Current acceptance status: **FAIL/BLOCKED; the hardware gate is closed.**
+
+The neurofeedback acceptance criterion is at least 25%. Simulation and report
+commands may exit successfully after reproducing a documented failing result;
+only `python3 manage.py accept` expresses candidate hardware acceptance.
+
+| Command | Exit zero means |
+|---|---|
+| `python3 manage.py test` | Documented regression expectations were reproduced; no acceptance claim |
+| `python3 manage.py simulate-*` | The requested model/report completed, even if its scientific verdict is failure |
+| `simulate-filter-stress --tier abuse` | The non-gating boundary map completed |
+| `python3 manage.py accept` | Every declared neurofeedback and hardware gate passed |
+
+The simulations extract schematic values and verify the simulated acquisition
+topology against the native netlist. They use declared engineering stress
 fixtures, not guaranteed physiology. The survival fixture combines 20/100 kΩ
 electrodes, 1 mV differential motion at 2 Hz, 100 µV differential muscle-like
 activity at 30 Hz, 100 mV common-mode mains at 60 Hz, and optionally 50 µV
-differential alpha at 10 Hz. Passing requires alpha to change mean `ENV` by at
-least 25%.
+differential alpha at 10 Hz.
 
 | Model | Principal result | Verdict |
 |---|---|---|

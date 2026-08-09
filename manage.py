@@ -445,7 +445,7 @@ def active_artifact_fixture_outputs(
     )
 
 
-def assert_artifact_simulation(values: dict[str, str]) -> None:
+def verify_artifact_baseline_regression(values: dict[str, str]) -> None:
     """Regression-check imbalance conversion and the contaminated envelope."""
     model = eeg_path_model(values)
     balanced_common_mode = simulate_electrode_inputs(
@@ -516,9 +516,13 @@ def print_artifact_simulation(values: dict[str, str]) -> None:
         f"[{color}]{verdict}[/{color}]: adding alpha changes mean ENV by "
         f"{relative_change:.1%}; the provisional distinguishability criterion is 25%."
     )
+    console.print(
+        "[green]Baseline regression: PASS[/green] — reproduced the documented "
+        "known-failing response. This is not neurofeedback acceptance."
+    )
 
 
-def assert_active_electrode_simulation(values: dict[str, str]) -> None:
+def verify_active_electrode_baseline_regression(values: dict[str, str]) -> None:
     """Regression-check the candidate active electrode against the same fixture."""
     passive = artifact_fixture_outputs(values, include_alpha=True)
     active = active_artifact_fixture_outputs(values, include_alpha=True)
@@ -622,6 +626,10 @@ def print_active_electrode_simulation(values: dict[str, str]) -> None:
     console.print(
         f"[{color}]{verdict}[/{color}]: active electrodes change mean ENV by "
         f"{relative_change:.1%} when alpha is added; target is 25%."
+    )
+    console.print(
+        "[green]Baseline regression: PASS[/green] — reproduced the documented "
+        "known-failing active-electrode comparison; acceptance remains failed."
     )
     console.print(
         "[yellow]Interpretation:[/yellow] buffering isolates the cable/common-mode "
@@ -875,7 +883,9 @@ def verify_filter_stress(values: dict[str, str], samples: int = 20_000,
 
 
 def print_filter_stress(result: FilterStressResult) -> None:
-    table = Table(title=f"Physical filter stress — {result.tier} tier")
+    title = ("Python physical-model stress — PARTIAL EVIDENCE"
+             if result.tier == "build" else "Physical filter stress — abuse tier")
+    table = Table(title=title)
     table.add_column("Metric")
     table.add_column("Worst result", justify="right")
     table.add_row("Cases", f"{result.cases:,}")
@@ -1135,7 +1145,7 @@ def main() -> None:
 
 @app.command()
 def test() -> None:
-    """Run the project's repeatable engineering checks."""
+    """Reproduce documented regressions; this is not circuit acceptance."""
     require_assertions_enabled()
     nets, values = schematic_data()
     assert_passives_have_values(values)
@@ -1145,15 +1155,30 @@ def test() -> None:
     assert_audio_output_stabilized(nets, values)
     assert_eeg_signal_path(nets, values)
     assert_eeg_simulation(values)
-    assert_artifact_simulation(values)
-    assert_active_electrode_simulation(values)
+    verify_artifact_baseline_regression(values)
+    verify_active_electrode_baseline_regression(values)
     verify_physical_filter_synthesis()
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
+    python_stress = run_filter_stress(values, "build", 0, 0x48454144)
+    require(python_stress.cases == 1_024 and python_stress.first_failure is None,
+            "physical Python baseline regression changed")
+    require_spice_models()
+    console.print(
+        "[green]Regression suite passed.[/green] This reproduces documented "
+        "results; it does not establish neurofeedback or hardware acceptance."
+    )
+
+
+@app.command()
+def accept() -> None:
+    """Require every declared physical-filter candidate acceptance gate."""
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
     verify_filter_stress(values)
-    console.print("[green]Schematic connectivity checks passed.[/green]")
+    console.print("[bold green]ACCEPTANCE PASS: every declared gate passed.[/bold green]")
 
 
 @app.command("simulate-filter-network")
@@ -1177,7 +1202,12 @@ def simulate_filter_stress(
     if tier == "build":
         require(result.first_failure is None,
                 f"physical build-envelope failure: {result.first_failure}")
-        magnitude_error, phase_error = spice_filter_ac_crosscheck()
+        try:
+            magnitude_error, phase_error = spice_filter_ac_crosscheck()
+        except VerificationError:
+            console.print("[bold red]Independent SPICE cross-check: BLOCKED[/bold red]")
+            console.print("[bold red]Overall hardware gate: CLOSED[/bold red]")
+            raise
         console.print(f"Python/SPICE AC agreement: {magnitude_error:.4f} dB, "
                       f"{phase_error:.4f}° worst case.")
     else:
@@ -1198,7 +1228,7 @@ def simulate_artifacts() -> None:
     """Test alpha distinguishability under explicit simultaneous artifacts."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
-    assert_artifact_simulation(values)
+    verify_artifact_baseline_regression(values)
     print_artifact_simulation(values)
 
 
@@ -1207,7 +1237,7 @@ def simulate_active_electrodes() -> None:
     """Compare passive cables with candidate unity-buffer active electrodes."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
-    assert_active_electrode_simulation(values)
+    verify_active_electrode_baseline_regression(values)
     print_active_electrode_simulation(values)
 
 
@@ -1221,6 +1251,10 @@ def simulate_sharper_filter() -> None:
 
 
 if __name__ == "__main__":
-    app()
+    try:
+        app()
+    except VerificationError as error:
+        console.print(f"[bold red]VERIFICATION FAILED:[/bold red] {error}")
+        raise SystemExit(1) from None
     bounded_stage_sample,
     recovery_bound_seconds,
