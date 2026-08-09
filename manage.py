@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import math
+import random
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -26,12 +29,36 @@ from circuit_sim import (
     simulate_electrode_inputs,
     simulate_peak_detector,
 )
+from physical_filter import (
+    MfbStageParts,
+    OpAmpModel,
+    component_corner_cases,
+    ideal_stage_transfer,
+    integrated_output_noise_rms,
+    solve_cascade_ac,
+    solve_stage_ac,
+)
 
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
 PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
+
+
+class VerificationError(RuntimeError):
+    """A durable project acceptance condition was not satisfied."""
+
+
+def require(condition: bool, message: str) -> None:
+    """Raise explicitly so optimization can never erase a verification gate."""
+    if not condition:
+        raise VerificationError(message)
+
+
+def require_assertions_enabled() -> None:
+    """Fail closed until legacy assertions have all migrated to ``require``."""
+    require(__debug__, "python -O is forbidden: legacy verification assertions remain")
 
 
 def schematic_data() -> tuple[
@@ -556,6 +583,48 @@ def planned_sharper_filter() -> CascadedBandpass:
     return CascadedBandpass.from_cutoffs(8.0, 12.0, stages=2)
 
 
+def verify_physical_filter_synthesis() -> None:
+    """Cross-check the proposed MFB parts, nodal solver, and ideal oracle."""
+    parts = MfbStageParts()
+    require(math.isclose(parts.center_hz, 9.79827727297, rel_tol=1e-10),
+            f"physical MFB center changed: {parts.center_hz:.9f} Hz")
+    require(math.isclose(parts.q, 1.56989199083, rel_tol=1e-10),
+            f"physical MFB Q changed: {parts.q:.9f}")
+    require(math.isclose(parts.center_gain, 1.0, rel_tol=1e-12),
+            f"physical MFB center gain changed: {parts.center_gain:.9f}")
+    oracle_opamp = OpAmpModel(dc_open_loop_gain=1e12, gain_bandwidth_hz=1e18)
+    for frequency in (0.5, 2.0, 8.0, parts.center_hz, 12.0, 30.0, 100.0):
+        nodal = solve_stage_ac(parts, oracle_opamp, frequency).transfer
+        closed_form = ideal_stage_transfer(parts, frequency)
+        require(abs(nodal - closed_form) <= 1e-9,
+                f"MFB nodal/oracle disagreement at {frequency:g} Hz")
+    physical = solve_stage_ac(parts, OpAmpModel(), parts.center_hz)
+    require(abs(abs(physical.transfer) - 1.0) < 0.001,
+            "finite-GBW LM358 model changes nominal center gain unexpectedly")
+    require(abs(physical.summing_node_v_per_v) > 0.0,
+            "physical solver did not expose the internal summing node")
+    require(abs(physical.output_current_a_per_v) > 0.0,
+            "physical solver did not expose source/load current")
+
+
+def print_physical_filter_synthesis() -> None:
+    parts, opamp = MfbStageParts(), OpAmpModel()
+    table = Table(title="Candidate physical MFB filter — non-schematic")
+    table.add_column("Quantity")
+    table.add_column("Stage 1")
+    table.add_column("Stage 2")
+    table.add_row("R1 / R2 / R5", "255k / 64.9k / 510k", "255k / 64.9k / 510k")
+    table.add_row("C3 / C4", "100n / 100n", "100n / 100n")
+    table.add_row("Nominal f0", f"{parts.center_hz:.6f} Hz", f"{parts.center_hz:.6f} Hz")
+    table.add_row("Nominal Q", f"{parts.q:.6f}", f"{parts.q:.6f}")
+    table.add_row("Center gain", "−1.000 V/V", "−1.000 V/V")
+    solved = solve_cascade_ac(parts, parts, opamp, parts.center_hz)
+    table.add_row("Finite-op-amp cascade", f"{abs(solved.stage1.transfer):.6f}", f"{abs(solved.transfer):.6f}")
+    table.add_row("Output current / Vin", f"{abs(solved.stage1.output_current_a_per_v)*1e6:.3f} µA/V", f"{abs(solved.stage2.output_current_a_per_v)*1e6:.3f} µA/V")
+    console.print(table)
+    console.print("[yellow]Candidate only:[/yellow] this network is not in headgames.kicad_sch.")
+
+
 def filtered_outputs(
     outputs: tuple[tuple[float, complex], ...],
     bandpass: CascadedBandpass,
@@ -802,6 +871,7 @@ def main() -> None:
 @app.command()
 def test() -> None:
     """Run the project's repeatable engineering checks."""
+    require_assertions_enabled()
     nets, values = schematic_data()
     assert_passives_have_values(values)
     assert_audio_input_path(nets)
@@ -812,11 +882,19 @@ def test() -> None:
     assert_eeg_simulation(values)
     assert_artifact_simulation(values)
     assert_active_electrode_simulation(values)
+    verify_physical_filter_synthesis()
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
     console.print("[green]Schematic connectivity checks passed.[/green]")
+
+
+@app.command("simulate-filter-network")
+def simulate_filter_network() -> None:
+    """Cross-check and report the candidate physical MFB network."""
+    verify_physical_filter_synthesis()
+    print_physical_filter_synthesis()
 
 
 @app.command("simulate-eeg")
