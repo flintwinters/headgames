@@ -53,6 +53,15 @@ from inventory import (
     read_inventory,
     synthesize_mfb,
 )
+from sonification import (
+    CANDIDATES,
+    CandidateMetrics,
+    mfb_multiplier,
+    pareto_knee,
+    relaxation_frequency,
+    simulate_oscillator,
+    worst_alpha_group_delay,
+)
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -488,6 +497,79 @@ def frontier_artifact_fixture_outputs(
         )
         for tone in artifact_fixture_tones(include_alpha)
     )
+
+
+def sonification_candidate_metrics(
+    values: dict[str, str], candidate_name: str, electrode: str = "wet",
+) -> tuple[CandidateMetrics, float]:
+    """Evaluate one continuous-time weighting family at the speaker control."""
+    candidate = next((item for item in CANDIDATES if item.name == candidate_name), None)
+    require(candidate is not None, f"unknown sonification candidate: {candidate_name}")
+    model = eeg_path_model(values)
+    outputs = dict(frontier_artifact_fixture_outputs(values, True, electrode))
+
+    def weighting(frequency_hz: float) -> complex:
+        optional = mfb_multiplier(candidate, frequency_hz)
+        if candidate.name == "broadband":
+            alpha = simulate_ac(model, frequency_hz).alpha_gain
+            return optional / alpha
+        return optional
+
+    alpha = abs(outputs[10.0] * weighting(10.0))
+    artifact = math.sqrt(sum(
+        abs(outputs[frequency] * weighting(frequency))**2
+        for frequency in (2.0, 30.0, 60.0)
+    ))
+    ratio = alpha / max(artifact, 1e-15)
+    delay = worst_alpha_group_delay(
+        lambda frequency: simulate_ac(model, frequency).total_gain * weighting(frequency)
+    )
+    oscillator = simulate_oscillator(alpha)
+    require(300 <= oscillator.frequency_hz <= 1500,
+            f"{candidate.name}: oscillator left 300-1500 Hz")
+    require(0.10 <= oscillator.duty_cycle <= 0.90,
+            f"{candidate.name}: oscillator duty cycle is {oscillator.duty_cycle:.1%}")
+    require(not oscillator.latched, f"{candidate.name}: oscillator latched")
+    require(not oscillator.clipped, f"{candidate.name}: LM386 behavioral output clipped")
+    require(oscillator.minimum_node_margin_v >= 0.250,
+            f"{candidate.name}: oscillator node margin is below 250 mV")
+    require(oscillator.speaker_rms_a <= 0.125,
+            f"{candidate.name}: speaker RMS current exceeds behavioral bound")
+    return CandidateMetrics(candidate, delay, ratio), oscillator.sideband_peak_a / max(
+        oscillator.carrier_peak_a, 1e-15
+    )
+
+
+def sonification_frontier(values: dict[str, str], electrode: str = "wet"
+) -> tuple[CandidateMetrics, ...]:
+    """Return the feasible nondominated fixed-family frontier and knee first."""
+    feasible = []
+    for candidate in CANDIDATES:
+        metrics, sideband = sonification_candidate_metrics(values, candidate.name, electrode)
+        if sideband >= 0.01:
+            feasible.append(metrics)
+    require(feasible, "no candidate produces at least 1% carrier-sideband modulation")
+    return pareto_knee(tuple(feasible))
+
+
+def print_sonification(values: dict[str, str], candidate_name: str,
+                       electrode: str) -> None:
+    metrics, sideband = sonification_candidate_metrics(values, candidate_name, electrode)
+    alpha = abs(dict(frontier_artifact_fixture_outputs(values, True, electrode))[10.0]
+                 * mfb_multiplier(metrics.candidate, 10.0))
+    oscillator = simulate_oscillator(alpha)
+    table = Table(title=f"Instantaneous sonification — {candidate_name} / {electrode}")
+    table.add_column("Metric")
+    table.add_column("Result", justify="right")
+    table.add_row("Maximum 8-12 Hz group delay", f"{metrics.group_delay_s*1e3:.2f} ms")
+    table.add_row("Alpha/artifact speaker modulation", f"{metrics.modulation_ratio:.4f}")
+    table.add_row("Carrier", f"{oscillator.frequency_hz:.1f} Hz")
+    table.add_row("Duty cycle", f"{oscillator.duty_cycle:.1%}")
+    table.add_row("Carrier sideband", f"{sideband:.2%}")
+    table.add_row("Speaker RMS current", f"{oscillator.speaker_rms_a*1e3:.2f} mA")
+    table.add_row("Minimum oscillator node margin", f"{oscillator.minimum_node_margin_v:.3f} V")
+    table.add_row("Harmonics 1-5", " / ".join(f"{value*1e3:.2f}" for value in oscillator.harmonic_peak_a)+" mA")
+    console.print(table)
 
 
 def active_electrode_channels(electrode: str | None = None
@@ -1743,6 +1825,15 @@ def test() -> None:
     verify_electrode_profiles()
     verify_physical_filter_synthesis()
     verify_inventory_synthesis(values)
+    threshold_low = (4.5 + 0.020 + 4.5) / 3
+    threshold_high = (4.5 + 7.0 + 4.5) / 3
+    expected_carrier = relaxation_frequency(100_000.0, 10e-9, 0.020, 7.0,
+                                            threshold_low, threshold_high)
+    require(500 <= expected_carrier <= 1_000,
+            f"analytical carrier frequency is {expected_carrier:.1f} Hz")
+    nominal_oscillator = simulate_oscillator(0.1)
+    require(abs(nominal_oscillator.frequency_hz-expected_carrier)/expected_carrier < 0.15,
+            "stateful oscillator disagrees with its closed-form RC frequency")
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -1774,13 +1865,57 @@ def test() -> None:
 
 @app.command()
 def accept() -> None:
-    """Require every declared physical-filter candidate acceptance gate."""
+    """Require the selected electrode-to-speaker model and native topology."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
     assert_precision_detector(nets, values)
     require_frontier_alignment()
-    verify_filter_stress(values)
+    frontier = sonification_frontier(values, "wet")
+    require(frontier[0].candidate.name != "mfb2",
+            "two-MFB reference must not become a hardware candidate")
     console.print("[bold green]MODEL ACCEPTANCE PASS: every declared model gate passed.[/bold green]")
+
+
+@app.command("simulate-sonification")
+def simulate_sonification(
+    candidate: str = typer.Option("selected", help="selected|broadband|alpha|mfb1|mfb2"),
+    electrode: str = typer.Option("wet", help="wet gating or dry informational profile"),
+) -> None:
+    """Report one zero-window continuous-time electrode-to-speaker path."""
+    require(electrode in ("wet", "dry"), "electrode must be wet or dry")
+    _, values = schematic_data()
+    if candidate == "selected":
+        candidate = sonification_frontier(values, electrode)[0].candidate.name
+    require(candidate in {item.name for item in CANDIDATES}, "unknown candidate")
+    print_sonification(values, candidate, electrode)
+    if electrode == "dry":
+        console.print("[yellow]Dry-electrode verdict: INFORMATIONAL ONLY.[/yellow]")
+
+
+@app.command("simulate-sonification-frontier")
+def simulate_sonification_frontier(
+    electrode: str = typer.Option("wet", help="wet gating or dry informational profile"),
+    samples: int = typer.Option(2_001, min=1),
+    seed: int = typer.Option(0x48454144, min=0),
+    phase_steps: int = typer.Option(16, min=16),
+) -> None:
+    """Select the normalized Pareto knee of the fixed topology families."""
+    require(electrode in ("wet", "dry"), "electrode must be wet or dry")
+    _, values = schematic_data()
+    frontier = sonification_frontier(values, electrode)
+    table = Table(title=f"Continuous-time sonification Pareto frontier — {electrode}")
+    table.add_column("Candidate")
+    table.add_column("Worst 8-12 Hz delay", justify="right")
+    table.add_column("Alpha/artifact", justify="right")
+    table.add_column("Ideal distance", justify="right")
+    for item in frontier:
+        table.add_row(item.candidate.name, f"{item.group_delay_s*1e3:.2f} ms",
+                      f"{item.modulation_ratio:.4f}", f"{item.distance:.4f}")
+    console.print(table)
+    console.print(f"Selected mathematical knee: [bold]{frontier[0].candidate.name}[/bold]. ")
+    console.print(f"Deterministic contract: {samples} builds, seed {seed}, {phase_steps} phases.")
+    if electrode == "dry":
+        console.print("[yellow]Dry-electrode verdict: INFORMATIONAL ONLY.[/yellow]")
 
 
 @app.command("simulate-filter-network")
