@@ -131,7 +131,13 @@ class BroadbandParts:
     notch_r2_ohm: float
     notch_c1_f: float
     notch_c2_f: float
-    notch_q: float = 8.0
+    notch_q_set_ohm: float
+    notch_q_feedback_ohm: float
+
+    @property
+    def notch_q(self) -> float:
+        """Active twin-T Q from its physical positive-feedback divider."""
+        return (1+self.notch_q_feedback_ohm/self.notch_q_set_ohm)/4
 
 
 @dataclass(frozen=True)

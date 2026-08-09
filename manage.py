@@ -743,7 +743,8 @@ def _alpha_redesign_case(arguments):
 def nominal_broadband_parts(feedback_ohm: float) -> BroadbandParts:
     """Materialize the proposed flat-gain and 60 Hz notch physical leaves."""
     return BroadbandParts(BROADBAND_GAIN_INPUT_OHM, feedback_ohm,
-                          332_000.0, 332_000.0, 8.0e-9, 8.0e-9)
+                          390_000.0, 390_000.0, 6.8e-9, 6.8e-9,
+                          20_000.0, 620_000.0)
 
 
 def broadband_build_from(build: SonificationBuild, nominal: SonificationBuild
@@ -752,7 +753,7 @@ def broadband_build_from(build: SonificationBuild, nominal: SonificationBuild
     def channel(item: ChannelParts, reference: ChannelParts) -> ChannelParts:
         return replace(item,
                        input_f=330e-9*(item.input_f/reference.input_f),
-                       feedback_f=530e-12*(item.feedback_f/reference.feedback_f))
+                       feedback_f=510e-12*(item.feedback_f/reference.feedback_f))
     return replace(build, meas=channel(build.meas, nominal.meas),
                    ref=channel(build.ref, nominal.ref))
 
@@ -767,7 +768,8 @@ def sampled_broadband_parts(feedback_ohm: float, rng: random.Random
         move(nominal.gain_feedback_ohm, 0.001),
         move(nominal.notch_r1_ohm, 0.001), move(nominal.notch_r2_ohm, 0.001),
         move(nominal.notch_c1_f, 0.001), move(nominal.notch_c2_f, 0.001),
-        nominal.notch_q,
+        move(nominal.notch_q_set_ohm, 0.001),
+        move(nominal.notch_q_feedback_ohm, 0.001),
     )
 
 
@@ -818,6 +820,9 @@ def verify_broadband_integrity(values: dict[str, str]) -> None:
             "independent notch resistors moved together")
     require(left.notch_c1_f != left.notch_c2_f,
             "independent notch capacitors moved together")
+    require(left.notch_q_set_ohm != parts.notch_q_set_ohm
+            and left.notch_q_feedback_ohm != parts.notch_q_feedback_ohm,
+            "active notch Q-setting leaves did not move")
     fake_rows = tuple(
         # Endpoint values are irrelevant here; this fixture tests identities.
         BroadbandFrequencyResult(

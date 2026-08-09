@@ -61,7 +61,7 @@ Current limited block-level evidence is:
 | End-to-end nominal wet/alpha run | Executes all 16 requested phases at the speaker-current endpoint, but fails: worst alpha/carrier modulation is 0.24% versus the 1% gate |
 | Selected wet/alpha spread run | Deterministically executes 17 builds × 16 phases; all 17 fail alpha modulation, worst alpha/carrier is 0.09%, peak modeled output/load current is 128.1 mA, and minimum modeled node margin is −0.949 V |
 | Alpha redesign comparison | An identical 17-build × 16-phase experiment for each of 3 weightings × 3 R6 values finds only the historical two-MFB cascade with 68 kΩ or 100 kΩ passes current behavioral gates; its worst modeled 8–12 Hz group delay is 139.4 ms, and this is not a hardware selection |
-| Broadband redesign checkpoint | An identical 2-build × 16-phase endpoint experiment for 5 gain-feedback values × 3 R6 values reports every 1–30 Hz wanted tone and 35–100 Hz rejection tone separately. Several rows pass the current behavioral gates; worst passing-band delay above 4 Hz is 12.6 ms and modeled 59/60/61 Hz rejection is at least about 18/36/18 dB. This is not a selection: 0.1–0.5 Hz is AC-only, active notch Q-setting leaves/device corners are absent, and isolated bench evidence is absent. |
+| Broadband redesign checkpoint | An identical 2-build × 16-phase endpoint experiment for 5 gain-feedback values × 3 R6 values reports every 1–30 Hz wanted tone and 35–100 Hz rejection tone separately. The realizable common-value twin-T model uses repeated 390 kΩ and 6.8 nF parts plus a 20 kΩ/620 kΩ Q divider. Several rows pass the current behavioral gates; worst passing-band delay above 4 Hz is 12.4 ms and modeled 59/60/61 Hz rejection is at least about 17/40/17 dB. This is not a selection: 0.1–0.5 Hz is AC-only, qualified notch/op-amp device corners are absent, and isolated bench evidence is absent. |
 
 The redesign result is deliberately fail-closed. Its MFB networks currently
 depend on a stale, non-authoritative BOM, require two additional amplifier
@@ -85,8 +85,8 @@ and two-MFB implementations are historical evidence, not hardware candidates.
 - Select the weighting topology and synthesize `R6` only after that valid
   experiment produces a reproducible frontier. Do not implement a candidate
   in KiCad based on the invalid nominal knee.
-- Expand the broadband checkpoint beyond two builds, model every physical
-  active-notch Q-setting leaf and qualified device corner independently, and
+- Expand the broadband checkpoint beyond two builds, add qualified notch/op-amp
+  device corners, and
   exercise 0.1–0.5 Hz at the stateful endpoint before selecting its U2C gain,
   R6, or schematic values. The current command deliberately exits fail-closed.
 - Extend characterization across VREF, supply, noise, slew, swing, clipping,
