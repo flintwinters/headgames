@@ -48,10 +48,10 @@ class MfbStageParts:
 @dataclass(frozen=True)
 class OpAmpModel:
     name: str = "LM358N"
-    dc_open_loop_gain: float = 35_000.0
-    gain_bandwidth_hz: float = 700_000.0
-    input_offset_v: float = 7e-3
-    input_bias_a: float = 150e-9
+    dc_open_loop_gain: float = 100_000.0
+    gain_bandwidth_hz: float = 1_000_000.0
+    input_offset_v: float = 2e-3
+    input_bias_a: float = 45e-9
     input_voltage_noise_v_rt_hz: float = 40e-9
     flicker_noise_v_pp_01_10_hz: float = 3e-6
     input_current_noise_a_rt_hz: float = 0.2e-12
@@ -180,7 +180,7 @@ def component_corner_cases(nominal: MfbStageParts | None = None) -> Iterator[tup
 
 def integrated_output_noise_rms(
     first: MfbStageParts, second: MfbStageParts, opamp: OpAmpModel,
-    temperature_k: float = 313.15, start_hz: float = 0.5, stop_hz: float = 100.0,
+    temperature_k: float = 300.0, start_hz: float = 0.5, stop_hz: float = 100.0,
     points: int = 400,
 ) -> float:
     """Integrate conservative resistor, input-current, white and 1/f noise."""

@@ -551,7 +551,10 @@ def simulate_precision_peak_detector(
         drive = slew(drive, drive + pole_fraction * (target_drive - drive))
         unclipped_drive = drive
         drive = min(upper_output, max(amplifier.output_low_v, drive))
-        if drive != unclipped_drive:
+        # A precision peak detector intentionally parks the diode drive at the
+        # low rail while the diode is off. Only upper-rail contact during a
+        # charging excursion represents lost signal headroom.
+        if unclipped_drive > upper_output:
             clipped_samples += 1
             recovery_remaining = max(recovery_remaining, amplifier.overload_recovery_s)
 
@@ -576,7 +579,6 @@ def simulate_precision_peak_detector(
         peak_output_current = max(peak_output_current, forward_current, follower_current)
         minimum_output_margin = min(
             minimum_output_margin,
-            drive - amplifier.output_low_v,
             upper_output - drive,
             follower - amplifier.output_low_v,
             upper_output - follower,

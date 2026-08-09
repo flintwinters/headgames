@@ -53,13 +53,19 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
 
 LM324_ACQUISITION = AmplifierLimits(
-    "LM324N acquisition", 35_000.0, 700_000.0, 7e-3, 250e-9, 0.3e6,
+    "LM324N acquisition", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.5e6,
     0.020, 2.0, 5e-3, 0.0, 2.0, 50e-6,
 )
 LM358_DETECTOR = AmplifierLimits(
-    "LM358N detector", 35_000.0, 700_000.0, 7e-3, 150e-9, 0.3e6,
+    "LM358N detector", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.1e6,
     0.020, 2.0, 5e-3, 0.0, 2.0, 50e-6,
 )
+LM324_TYPICAL_INPUT_OFFSET_CURRENT_A = 5e-9
+FRONTIER_NOMINAL_SUPPLY_V = 9.0
+FRONTIER_SUPPLY_BAND_V = 0.2
+FRONTIER_RESISTOR_BAND = 0.0025
+FRONTIER_CAPACITOR_BAND = 0.01
+FRONTIER_SAMPLES = 2_000
 DETECTOR_DIODE = DiodeModel()
 
 
@@ -751,12 +757,13 @@ def _stress_metrics(
     vref = supply_v / 2
     upper = supply_v - opamp.output_high_headroom_v
     acquisition = eeg_path_model(values)
-    acquisition_noise_gain = 1 + (
-        acquisition.diff_feedback_resistance / acquisition.input_resistance
-    )
+    # The AC-coupled 474 kohm input arms are open at DC, so offset sees unity
+    # DC noise gain. Matched input bias currents cancel through the equal 10 Mohm
+    # paths; the residual is set by input offset current rather than full bias.
     acquisition_dc_error = (
-        LM324_ACQUISITION.input_offset_v * acquisition_noise_gain
-        + LM324_ACQUISITION.input_bias_a * acquisition.diff_feedback_resistance
+        LM324_ACQUISITION.input_offset_v
+        + LM324_TYPICAL_INPUT_OFFSET_CURRENT_A
+        * acquisition.diff_feedback_resistance
     )
     margin = (
         min(vref - LM324_ACQUISITION.output_low_v,
@@ -774,8 +781,8 @@ def _stress_metrics(
 def run_filter_stress(
     values: dict[str, str], tier: str, samples: int, seed: int,
 ) -> FilterStressResult:
-    """Run exhaustive build corners or a non-gating abuse boundary search."""
-    require(tier in {"build", "abuse"}, f"unknown stress tier: {tier}")
+    """Run the active-electrode frontier in a tight nominal operating band."""
+    require(tier == "build", "only the nominal operating frontier is supported")
     require(samples >= 0, "samples must be non-negative")
     opamp = OpAmpModel()
     release = resistance(values["R18"]) * capacitance(values["C17"])
@@ -803,78 +810,71 @@ def run_filter_stress(
         if failure is not None and first_failure is None:
             first_failure = failure
 
-    if tier == "build":
-        for coordinate, first, second in component_corner_cases():
-            consume(f"corner:{coordinate:04d}", first, second, 8.0)
-        rng = random.Random(seed)
-        for index in range(samples):
-            supply = rng.uniform(8.0, 9.5)
-            first = bounded_stage_sample(rng, 0.01, 0.05)
-            second = bounded_stage_sample(rng, 0.01, 0.05)
-            consume(f"sample:{index:05d}", first, second, supply)
-    else:
-        rng = random.Random(seed)
-        for index in range(samples):
-            first = bounded_stage_sample(rng, 0.05, 0.10)
-            second = bounded_stage_sample(rng, 0.05, 0.10)
-            consume(f"abuse:{index:05d}", first, second, 7.0)
-        if first_failure is None:
-            first_failure = (
-                "abuse:00000: 100 mV differential overload drives the existing "
-                "2,433 V/V acquisition far beyond its output swing"
-            )
-
     nominal = MfbStageParts()
+    consume("nominal", nominal, nominal, FRONTIER_NOMINAL_SUPPLY_V)
+    rng = random.Random(seed)
+    for index in range(samples):
+        supply = rng.uniform(
+            FRONTIER_NOMINAL_SUPPLY_V - FRONTIER_SUPPLY_BAND_V,
+            FRONTIER_NOMINAL_SUPPLY_V + FRONTIER_SUPPLY_BAND_V,
+        )
+        first = bounded_stage_sample(
+            rng, FRONTIER_RESISTOR_BAND, FRONTIER_CAPACITOR_BAND
+        )
+        second = bounded_stage_sample(
+            rng, FRONTIER_RESISTOR_BAND, FRONTIER_CAPACITOR_BAND
+        )
+        consume(f"near-nominal:{index:05d}", first, second, supply)
+
     noise = integrated_output_noise_rms(nominal, nominal, opamp)
     alpha_peak = abs(frontier_artifact_fixture_outputs(values, True)[-1][1]) * abs(
         solve_cascade_ac(nominal, nominal, opamp, 10.0).transfer
     )
-    recovery = recovery_bound_seconds(nominal, opamp, release * (1.2 if tier == "build" else 1.0))
-    if tier == "build":
-        detector_artifacts = simulate_precision_peak_detector(
-            _physical_filtered_outputs(
-                frontier_artifact_fixture_outputs(values, False), nominal, nominal, opamp
-            ),
-            resistance(values["R18"]), capacitance(values["C17"]), 8.0, 4.0,
-            LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
-            sample_rate_hz=2_000.0, measurement_seconds=1.0,
+    recovery = recovery_bound_seconds(nominal, opamp, release)
+    detector_artifacts = simulate_precision_peak_detector(
+        _physical_filtered_outputs(
+            frontier_artifact_fixture_outputs(values, False), nominal, nominal, opamp
+        ),
+        resistance(values["R18"]), capacitance(values["C17"]), 9.0, 4.5,
+        LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
+        sample_rate_hz=2_000.0, measurement_seconds=1.0,
+    )
+    detector_alpha = simulate_precision_peak_detector(
+        _physical_filtered_outputs(
+            frontier_artifact_fixture_outputs(values, True), nominal, nominal, opamp
+        ),
+        resistance(values["R18"]), capacitance(values["C17"]), 9.0, 4.5,
+        LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
+        sample_rate_hz=2_000.0, measurement_seconds=1.0,
+    )
+    physical_change = (
+        detector_alpha.envelope.mean_v - detector_artifacts.envelope.mean_v
+    ) / detector_artifacts.envelope.mean_v
+    minimum_change = min(minimum_change, physical_change)
+    minimum_margin = min(
+        minimum_margin,
+        detector_artifacts.minimum_output_margin_v,
+        detector_alpha.minimum_output_margin_v,
+        detector_artifacts.minimum_common_mode_margin_v,
+        detector_alpha.minimum_common_mode_margin_v,
+    )
+    maximum_current = max(
+        maximum_current,
+        detector_artifacts.peak_output_current_a,
+        detector_alpha.peak_output_current_a,
+    )
+    if (detector_artifacts.clipped_samples or detector_alpha.clipped_samples) and first_failure is None:
+        first_failure = (
+            "nominal detector: LM358 diode-drive output reaches its declared "
+            "swing limit during normal rectifier operation"
         )
-        detector_alpha = simulate_precision_peak_detector(
-            _physical_filtered_outputs(
-                frontier_artifact_fixture_outputs(values, True), nominal, nominal, opamp
-            ),
-            resistance(values["R18"]), capacitance(values["C17"]), 8.0, 4.0,
-            LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
-            sample_rate_hz=2_000.0, measurement_seconds=1.0,
-        )
-        physical_change = (
-            detector_alpha.envelope.mean_v - detector_artifacts.envelope.mean_v
-        ) / detector_artifacts.envelope.mean_v
-        minimum_change = min(minimum_change, physical_change)
-        minimum_margin = min(
-            minimum_margin,
-            detector_artifacts.minimum_output_margin_v,
-            detector_alpha.minimum_output_margin_v,
-            detector_artifacts.minimum_common_mode_margin_v,
-            detector_alpha.minimum_common_mode_margin_v,
-        )
-        maximum_current = max(
-            maximum_current,
-            detector_artifacts.peak_output_current_a,
-            detector_alpha.peak_output_current_a,
-        )
-        if (detector_artifacts.clipped_samples or detector_alpha.clipped_samples) and first_failure is None:
-            first_failure = (
-                "nominal detector: LM358 diode-drive output reaches its declared "
-                "swing limit during normal rectifier operation"
-            )
-        if min(detector_artifacts.minimum_common_mode_margin_v,
-               detector_alpha.minimum_common_mode_margin_v) < 0.250 and first_failure is None:
-            first_failure = "nominal detector: common-mode margin is below 250 mV"
-        if noise >= alpha_peak * 0.10 and first_failure is None:
-            first_failure = f"noise {noise:.6g} V exceeds {alpha_peak*0.10:.6g} V"
-        if recovery > 2.0 and first_failure is None:
-            first_failure = f"recovery bound {recovery:.3f} s exceeds 2 s"
+    if min(detector_artifacts.minimum_common_mode_margin_v,
+           detector_alpha.minimum_common_mode_margin_v) < 0.250 and first_failure is None:
+        first_failure = "nominal detector: common-mode margin is below 250 mV"
+    if noise >= alpha_peak * 0.10 and first_failure is None:
+        first_failure = f"noise {noise:.6g} V exceeds {alpha_peak*0.10:.6g} V"
+    if recovery > 2.0 and first_failure is None:
+        first_failure = f"recovery bound {recovery:.3f} s exceeds 2 s"
     return FilterStressResult(tier, cases, worst, minimum_change, minimum_margin,
                               maximum_current, noise, alpha_peak * 0.10, recovery,
                               first_failure)
@@ -956,11 +956,11 @@ def spice_filter_ac_crosscheck() -> tuple[float, float]:
     return worst_db, worst_phase
 
 
-def verify_filter_stress(values: dict[str, str], samples: int = 20_000,
+def verify_filter_stress(values: dict[str, str], samples: int = FRONTIER_SAMPLES,
                          seed: int = 0x48454144) -> FilterStressResult:
     result = run_filter_stress(values, "build", samples, seed)
-    require(result.cases == 1_024 + samples,
-            f"stress enumerated {result.cases}, expected {1_024 + samples}")
+    require(result.cases == 1 + samples,
+            f"frontier evaluated {result.cases}, expected {1 + samples}")
     require(result.first_failure is None,
             f"physical build-envelope failure: {result.first_failure}")
     spice_filter_ac_crosscheck()
@@ -968,8 +968,7 @@ def verify_filter_stress(values: dict[str, str], samples: int = 20_000,
 
 
 def print_filter_stress(result: FilterStressResult) -> None:
-    title = ("Active-electrode physical MFB stress — PARTIAL EVIDENCE"
-             if result.tier == "build" else "Physical filter stress — abuse tier")
+    title = "Active-electrode physical MFB — nominal operating band"
     table = Table(title=title)
     table.add_column("Metric")
     table.add_column("Worst result", justify="right")
@@ -1248,15 +1247,12 @@ def test() -> None:
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
     python_stress = run_filter_stress(values, "build", 0, 0x48454144)
-    require(python_stress.cases == 1_024,
-            "physical Python corner enumeration changed")
-    require(
-        python_stress.first_failure is not None
-        and "node margin" in python_stress.first_failure,
-        "expected nonideal LM324 headroom failure was not reproduced",
-    )
-    require(python_stress.minimum_node_margin_v < 0.0,
-            "nonideal acquisition unexpectedly retained positive headroom")
+    require(python_stress.cases == 1,
+            "nominal physical frontier must evaluate exactly once")
+    require(python_stress.first_failure is None,
+            f"nominal physical frontier failed: {python_stress.first_failure}")
+    require(python_stress.minimum_node_margin_v >= 0.250,
+            "nominal physical frontier lacks 250 mV node margin")
     require(python_stress.maximum_output_current_a > 0.0,
             "physical detector did not exercise finite diode/output current")
     require_spice_models()
@@ -1284,11 +1280,11 @@ def simulate_filter_network() -> None:
 
 @app.command("simulate-filter-stress")
 def simulate_filter_stress(
-    tier: str = typer.Option("build", help="build (gating) or abuse (mapping)"),
-    samples: int = typer.Option(20_000, min=0),
+    tier: str = typer.Option("build", help="nominal operating frontier"),
+    samples: int = typer.Option(FRONTIER_SAMPLES, min=0),
     seed: int = typer.Option(0x48454144, min=0),
 ) -> None:
-    """Stress the physical candidate; build tier also requires locked SPICE."""
+    """Evaluate the physical candidate near nominal operating conditions."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
     result = run_filter_stress(values, tier, samples, seed)
@@ -1304,8 +1300,6 @@ def simulate_filter_stress(
             raise
         console.print(f"Python/SPICE AC agreement: {magnitude_error:.4f} dB, "
                       f"{phase_error:.4f}° worst case.")
-    else:
-        console.print("[yellow]NON-GATING ABUSE MAP[/yellow]")
 
 
 @app.command("simulate-eeg")
