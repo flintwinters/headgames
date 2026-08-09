@@ -62,6 +62,31 @@ VREF and adding alpha raises that only to 0.954 V, a 3.8% change. These fixture
 amplitudes are declared stress assumptions, not universal physiological bounds.
 Change them deliberately as physical measurements become available.
 
+## Matched acquisition components
+
+Common-mode rejection depends on matched impedance ratios, not merely nominal
+part values. Select and keep these components as matched pairs:
+
+- `R12` and `R22`: 10 MΩ
+- `C11` and `C15`: nominally 1.5 nF
+- `C12` and `C14`: 100 nF
+- `R15` and `R21`: the measured 474 kΩ pair reserved for this build
+
+Record individual measured values and pair parts by their difference on the
+same meter range. The two 474 kΩ parts are a suitable common-value replacement
+for the schematic's nominal 470 kΩ pair; using both changes nominal differential
+gain by less than 1%.
+
+There are currently no 1.5 nF capacitors in inventory. Do **not** substitute
+1 nF alone for `C11` and `C15`: with the 10 MΩ resistors that would move their
+low-pass corner from approximately 10.6 Hz to 15.9 Hz and further broaden the
+artifact-sensitive response. The planned common-value implementation is a
+matched 1 nF C0G capacitor in parallel with a matched 470 pF C0G capacitor at
+each location. The 1.47 nF total gives an approximately 10.8 Hz corner, only
+about 2% above the original target. Match the **combined capacitance** of the
+two parallel pairs. The authoritative schematic must show both physical
+capacitors when this substitution is implemented.
+
 An immediately viewable PDF is generated as `build/BUILD_NOW.pdf` with:
 
 ```sh
