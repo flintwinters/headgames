@@ -1636,6 +1636,79 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Device:R_Potentiometer"
+			(pin_names
+				(offset 1.016)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "RV"
+				(at -4.445 0 90)
+				(effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "R_Potentiometer"
+				(at -2.54 0 90)
+				(effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "Datasheet" "~"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "Description" "Potentiometer"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "ki_keywords" "resistor variable"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(property "ki_fp_filters" "Potentiometer*"
+				(at 0 0 0)
+				(effects (font (size 1.27 1.27)) (hide yes))
+			)
+			(symbol "R_Potentiometer_0_1"
+				(rectangle
+					(start 1.016 2.54)
+					(end -1.016 -2.54)
+					(stroke (width 0.254) (type default))
+					(fill (type none))
+				)
+				(polyline
+					(pts (xy 1.143 0) (xy 2.286 0.508) (xy 2.286 -0.508) (xy 1.143 0))
+					(stroke (width 0) (type default))
+					(fill (type outline))
+				)
+				(polyline
+					(pts (xy 2.54 0) (xy 1.524 0))
+					(stroke (width 0) (type default))
+					(fill (type none))
+				)
+			)
+			(symbol "R_Potentiometer_1_1"
+				(pin passive line
+					(at 0 3.81 270) (length 1.27)
+					(name "1" (effects (font (size 1.27 1.27))))
+					(number "1" (effects (font (size 1.27 1.27))))
+				)
+				(pin passive line
+					(at 0 -3.81 90) (length 1.27)
+					(name "3" (effects (font (size 1.27 1.27))))
+					(number "3" (effects (font (size 1.27 1.27))))
+				)
+				(pin passive line
+					(at 3.81 0 180) (length 1.27)
+					(name "2" (effects (font (size 1.27 1.27))))
+					(number "2" (effects (font (size 1.27 1.27))))
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Device:Speaker"
 			(pin_names
 				(offset 0)
@@ -3756,6 +3829,26 @@
 	)
 	(wire
 		(pts
+			(xy 168.91 88.9) (xy 168.91 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3020000-0000-4000-8000-000000000001")
+	)
+	(wire
+		(pts
+			(xy 168.91 92.71) (xy 172.72 92.71)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3020000-0000-4000-8000-000000000002")
+	)
+	(wire
+		(pts
 			(xy 100.33 86.36) (xy 125.73 86.36)
 		)
 		(stroke
@@ -4543,7 +4636,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
+		(lib_id "Device:R_Potentiometer")
 		(at 172.72 88.9 270)
 		(unit 1)
 		(exclude_from_sim no)
@@ -4567,12 +4660,13 @@
 			(at 172.72 88.9 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
-		(property "Description" "External 25k linear potentiometer used as rheostat; strap wiper to the R6 end"
+		(property "Description" "External 25k linear potentiometer used as rheostat; pins 2 and 3 strapped at the R6 end, pin 1 to U2D"
 			(at 172.72 88.9 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(pin "1" (uuid "d3010000-0000-4000-8000-000000000001"))
 		(pin "2" (uuid "d3010000-0000-4000-8000-000000000002"))
+		(pin "3" (uuid "d3010000-0000-4000-8000-000000000003"))
 		(instances
 			(project "headgames"
 				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"

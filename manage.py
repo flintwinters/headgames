@@ -350,7 +350,7 @@ def assert_eeg_signal_path(
             "ALPHA feedback does not match the simulated parallel network")
     require(("R6", "2") in alpha_net,
             "ALPHA must enter the oscillator coupling network through R6")
-    exact_net(("R6", "1"), {("R6", "1"), ("RV3", "2")})
+    exact_net(("R6", "1"), {("R6", "1"), ("RV3", "2"), ("RV3", "3")})
     oscillator_control_net = next(net for net in nets.values() if ("RV3", "1") in net)
     require({("RV3", "1"), ("U2", "12")} <= oscillator_control_net,
             "RV3 must complete the explicit series path to U2D")
