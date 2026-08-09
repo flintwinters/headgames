@@ -14,9 +14,10 @@ return, pin 2 unused). Disconnect grounded scopes, bench supplies, USB,
 chargers, powered audio, and every other mains-earth path.
 
 MEAS and REF each require two independent 100 kΩ series safety resistors; BIAS
-requires two independent 1 MΩ resistors. Active-electrode experiments must put
-both resistors ahead of each electrode-side buffer and keep the complete worn
-system isolated.
+requires two independent 1 MΩ resistors. The selected active assembly uses one
+dual OPA2192 at the electrode end, with both safety resistors electrically ahead
+of each buffer. Its five isolated conductors are buffered MEAS, buffered REF,
+BIAS, battery VCC, and battery return; the complete worn system remains isolated.
 
 ## Verification
 
@@ -64,12 +65,13 @@ differential alpha at 10 Hz.
 | Active electrodes | Mains falls 0.686→0.004 V, but motion reaches 1.000 V and `ENV` changes 2.8% | Fail; buffers solve cable imbalance, not motion |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
 | Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
-| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement: ≥538.5% `ENV` change; 1.073 V minimum node margin; 1.381 mA peak current | **Pass in Python tier; not a yield estimate** |
+| OPA2192 active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement: ≥904.5% `ENV` change; 1.072 V minimum node margin; 2.208 mA peak current | **Pass in Python tier; not a yield estimate** |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002° | **Pass for declared nominal scope** |
 | Comprehensive TI PSpice model | TI Rev. C LMx58/LM2904 model remains incompatible with ngspice 44.2 `IF()`/switch syntax | Retained for provenance; outside the compatibility-model gate |
 
-The active-electrode sensitivity model assumes 5 pF input capacitance, 1 MHz
-GBW, 100 Ω output resistance, 10 pA bias, 25 nV/√Hz white noise, and unequal
+The active-electrode sensitivity model names the dual OPA2192 and uses 6.4 pF
+input capacitance, 10 MHz GBW, 100 Ω conservative output resistance, 20 pA
+input bias, 10.5 nV/√Hz white noise, and unequal
 150/250 pF cables. The sharper-filter figures are ideal transfer-function
 targets, not a hardware pass. Those baseline figures use ideal biquads and the
 explicitly named ideal envelope oracle; they are not physical-detector evidence.

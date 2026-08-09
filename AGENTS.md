@@ -16,9 +16,11 @@ detector with 1N4148 and 0.22 s release, analog carrier control, and an LM386
 speaker stage. The analog feedback path must remain entirely analog; any future
 logging stays electrically safe and outside it.
 
-MEAS and REF each enter through two independent 100 kΩ series resistors; BIAS
-uses two independent 1 MΩ resistors. These do not relax the isolated-battery
-rule. While worn, remove grounded scopes, bench supplies, USB, chargers,
+MEAS and REF each enter through two independent 100 kΩ series resistors before
+the two channels of an electrode-site OPA2192; BIAS uses two independent 1 MΩ
+resistors. The active assembly boundary has exactly five conductors: buffered
+MEAS, buffered REF, BIAS, isolated VCC, and isolated return. These do not relax
+the isolated-battery rule. While worn, remove grounded scopes, bench supplies, USB, chargers,
 powered audio, and every mains-earth path. This is not a medical device.
 
 Acquisition ratios are assembly invariants. Pair-match `R12/R22` (10 MΩ),
@@ -38,7 +40,7 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement retain ≥538.5% `ENV` change, 1.073 V minimum node margin, and 1.381 mA peak current; pass, but not a yield estimate |
+| OPA2192 active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement retain ≥904.5% `ENV` change, 1.072 V minimum node margin, and 2.208 mA peak current; pass, but not a yield estimate |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
 | Comprehensive TI PSpice model | Retained unchanged for provenance; ngspice 44.2 still rejects its `IF()`/switch syntax |
 

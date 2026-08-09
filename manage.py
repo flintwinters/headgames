@@ -70,6 +70,10 @@ FRONTIER_RESISTOR_BAND = 0.01
 FRONTIER_CAPACITOR_BAND = 0.05
 FRONTIER_SAMPLES = 2_000
 DETECTOR_DIODE = DiodeModel()
+ACTIVE_ELECTRODE_IC = "OPA2192"
+ACTIVE_ELECTRODE_CONDUCTORS = (
+    "MEAS_BUFFERED", "REF_BUFFERED", "BIAS", "VCC_ISOLATED", "GND_ISOLATED",
+)
 
 # A block is aligned only when the same physical implementation is both drawn
 # in the native schematic and exercised by the frontier model.  Keep the
@@ -478,13 +482,14 @@ def frontier_artifact_fixture_outputs(
 
 def active_electrode_channels(
 ) -> tuple[ActiveElectrodeChannel, ActiveElectrodeChannel]:
-    """Return the declared candidate buffer and deliberately unequal cables."""
+    """Return the selected OPA2192 dual buffer and unequal cable loads."""
     shared = {
-        "input_capacitance": 5e-12,
-        "gain_bandwidth_hz": 1_000_000.0,
+        "amplifier_name": ACTIVE_ELECTRODE_IC,
+        "input_capacitance": 6.4e-12,
+        "gain_bandwidth_hz": 10_000_000.0,
         "output_resistance": 100.0,
-        "input_bias_current": 10e-12,
-        "white_voltage_noise": 25e-9,
+        "input_bias_current": 20e-12,
+        "white_voltage_noise": 10.5e-9,
     }
     return (
         ActiveElectrodeChannel(
@@ -601,6 +606,12 @@ def print_artifact_simulation(values: dict[str, str]) -> None:
 
 def verify_active_electrode_baseline_regression(values: dict[str, str]) -> None:
     """Regression-check the candidate active electrode against the same fixture."""
+    meas_channel, ref_channel = active_electrode_channels()
+    require(meas_channel.amplifier_name == ref_channel.amplifier_name == "OPA2192",
+            "active buffer IC changed")
+    require(ACTIVE_ELECTRODE_CONDUCTORS == (
+        "MEAS_BUFFERED", "REF_BUFFERED", "BIAS", "VCC_ISOLATED", "GND_ISOLATED",
+    ), "five-conductor active electrode boundary changed")
     passive = artifact_fixture_outputs(values, include_alpha=True)
     active = active_artifact_fixture_outputs(values, include_alpha=True)
     assert len(passive) == len(active) == 4
@@ -611,7 +622,7 @@ def verify_active_electrode_baseline_regression(values: dict[str, str]) -> None:
     )
 
     model = eeg_path_model(values)
-    channel, _ = active_electrode_channels()
+    channel = meas_channel
     balanced_common_mode = simulate_active_electrode_inputs(
         model, 60.0, 0.1, 0.1, channel, channel
     )
@@ -627,7 +638,7 @@ def verify_active_electrode_baseline_regression(values: dict[str, str]) -> None:
     # it cannot remove differential electrode motion. Preserve that distinction.
     assert relative_change < 0.25
     white_noise_rms = active_electrode_output_noise_rms(
-        model, *active_electrode_channels()
+        model, meas_channel, ref_channel
     )
     assert white_noise_rms < abs(active[3][1]) / 10
 
@@ -679,11 +690,32 @@ def print_active_electrode_simulation(values: dict[str, str]) -> None:
         f"{meas_channel.cable_capacitance * 1e12:.0f} pF",
         f"{ref_channel.cable_capacitance * 1e12:.0f} pF",
     )
-    assumptions.add_row("Buffer output resistance", "100 ohm", "100 ohm")
-    assumptions.add_row("Buffer GBW", "1 MHz", "1 MHz")
-    assumptions.add_row("Input capacitance", "5 pF", "5 pF")
-    assumptions.add_row("Input bias current", "10 pA", "10 pA")
-    assumptions.add_row("White voltage noise", "25 nV/rtHz", "25 nV/rtHz")
+    assumptions.add_row("Buffer IC", meas_channel.amplifier_name, ref_channel.amplifier_name)
+    assumptions.add_row(
+        "Buffer output resistance",
+        f"{meas_channel.output_resistance:.0f} ohm",
+        f"{ref_channel.output_resistance:.0f} ohm",
+    )
+    assumptions.add_row(
+        "Buffer GBW",
+        f"{meas_channel.gain_bandwidth_hz / 1e6:g} MHz",
+        f"{ref_channel.gain_bandwidth_hz / 1e6:g} MHz",
+    )
+    assumptions.add_row(
+        "Input capacitance",
+        f"{meas_channel.input_capacitance * 1e12:g} pF",
+        f"{ref_channel.input_capacitance * 1e12:g} pF",
+    )
+    assumptions.add_row(
+        "Input bias current",
+        f"{meas_channel.input_bias_current * 1e12:g} pA",
+        f"{ref_channel.input_bias_current * 1e12:g} pA",
+    )
+    assumptions.add_row(
+        "White voltage noise",
+        f"{meas_channel.white_voltage_noise * 1e9:g} nV/rtHz",
+        f"{ref_channel.white_voltage_noise * 1e9:g} nV/rtHz",
+    )
     console.print(assumptions)
 
     verdict = "PASS" if relative_change >= 0.25 else "FAIL"

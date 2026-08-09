@@ -63,6 +63,7 @@ class EnvelopeResult:
 class ActiveElectrodeChannel:
     """Candidate unity-buffer and cable parameters for one electrode."""
 
+    amplifier_name: str
     electrode_resistance: float
     input_capacitance: float
     gain_bandwidth_hz: float
@@ -375,7 +376,12 @@ def simulate_nonideal_active_electrode_inputs(
     ref_channel: ActiveElectrodeChannel,
     amplifier: AmplifierLimits,
 ) -> complex:
-    """Solve buffered electrodes through the finite-A0/GBW acquisition path."""
+    """Solve electrode-site buffers through the finite-A0/GBW acquisition path.
+
+    Both independent safety resistors are included in the source impedance on
+    the body side of each buffer. The cable capacitance is therefore driven by
+    the buffer output rather than directly by the electrode impedance.
+    """
     meas_source, meas_impedance = active_electrode_thevenin(
         meas_channel,
         parts.safety_resistance,
