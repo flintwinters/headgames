@@ -185,14 +185,62 @@ def assert_audio_output_stabilized(
 def assert_eeg_signal_path(
     nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
 ) -> None:
-    """Require matched acquisition and explicit alpha/detector behavior."""
+    """Prove the native schematic implements the topology solved in circuit_sim."""
     assert values["U2"].startswith("LM324N"), (
         "the MVP must use the quad amplifier available in project inventory"
     )
     assert resistance(values["R12"]) == resistance(values["R22"])
     assert resistance(values["R15"]) == resistance(values["R21"])
+    assert resistance(values["R16"]) == resistance(values["R19"])
+    assert resistance(values["R14"]) == resistance(values["R20"])
     assert capacitance(values["C11"]) == capacitance(values["C15"])
     assert capacitance(values["C12"]) == capacitance(values["C14"])
+
+    def exact_net(pin: tuple[str, str], expected: set[tuple[str, str]]) -> None:
+        actual = next((net for net in nets.values() if pin in net), None)
+        require(actual == expected,
+                f"{pin[0]} pin {pin[1]} topology mismatch: {sorted(actual or ())}")
+
+    # MEAS reaches U2B's non-inverting input through two safety resistors and
+    # the series C12/R15 input. R12||C11 returns that node to VREF.
+    exact_net(("J2", "2"), {("J2", "2"), ("R16", "2")})
+    exact_net(("R16", "1"), {("R16", "1"), ("R14", "2")})
+    exact_net(("R14", "1"), {("R14", "1"), ("C12", "2")})
+    exact_net(("C12", "1"), {("C12", "1"), ("R15", "2")})
+    exact_net(("U2", "5"), {
+        ("U2", "5"), ("R15", "1"), ("R12", "1"), ("C11", "1")
+    })
+
+    # REF reaches U2B's inverting input through the symmetric network;
+    # R22||C15 closes feedback from pin 7 at DIFF_OUT.
+    exact_net(("J2", "1"), {("J2", "1"), ("R19", "2")})
+    exact_net(("R19", "1"), {("R19", "1"), ("R20", "2")})
+    exact_net(("R20", "1"), {("R20", "1"), ("C14", "2")})
+    exact_net(("C14", "1"), {("C14", "1"), ("R21", "2")})
+    exact_net(("U2", "6"), {
+        ("U2", "6"), ("R21", "1"), ("R22", "2"), ("C15", "2")
+    })
+    exact_net(("U2", "7"), {
+        ("U2", "7"), ("R22", "1"), ("C15", "1"), ("C13", "2")
+    })
+
+    # DIFF_OUT enters the U2C inverting ALPHA stage through C13/R17/RV1;
+    # C16 parallels the R23/RV2 feedback path from ALPHA.
+    exact_net(("C13", "1"), {("C13", "1"), ("R17", "2")})
+    exact_net(("R17", "1"), {("R17", "1"), ("RV1", "2")})
+    exact_net(("U2", "9"), {
+        ("U2", "9"), ("RV1", "1"), ("R23", "2"), ("C16", "2")
+    })
+    exact_net(("R23", "1"), {("R23", "1"), ("RV2", "2")})
+    alpha_net = next(net for net in nets.values() if ("U2", "8") in net)
+    require({("U2", "8"), ("RV2", "1"), ("C16", "1")} <= alpha_net,
+            "ALPHA feedback does not match the simulated parallel network")
+    vref_net = next(net for net in nets.values() if ("U2", "10") in net)
+    require({("U2", "10"), ("R12", "2"), ("C11", "2")} <= vref_net,
+            "MEAS shunt and U2C bias must return to VREF")
+    all_nodes = set().union(*nets.values())
+    require(("RV1", "3") not in all_nodes and ("RV2", "3") not in all_nodes,
+            "trim unused ends must remain open for rheostat topology")
 
     hp_fixed = resistance(values["R17"])
     hp_trim = resistance(values["RV1"])
@@ -1122,7 +1170,8 @@ def simulate_filter_stress(
     seed: int = typer.Option(0x48454144, min=0),
 ) -> None:
     """Stress the physical candidate; build tier also requires locked SPICE."""
-    _, values = schematic_data()
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
     result = run_filter_stress(values, tier, samples, seed)
     print_filter_stress(result)
     if tier == "build":
@@ -1138,7 +1187,8 @@ def simulate_filter_stress(
 @app.command("simulate-eeg")
 def simulate_eeg() -> None:
     """Simulate the small-signal electrode-to-ALPHA response."""
-    _, values = schematic_data()
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
     assert_eeg_simulation(values)
     print_eeg_simulation(values)
 
@@ -1146,7 +1196,8 @@ def simulate_eeg() -> None:
 @app.command("simulate-artifacts")
 def simulate_artifacts() -> None:
     """Test alpha distinguishability under explicit simultaneous artifacts."""
-    _, values = schematic_data()
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
     assert_artifact_simulation(values)
     print_artifact_simulation(values)
 
@@ -1154,7 +1205,8 @@ def simulate_artifacts() -> None:
 @app.command("simulate-active-electrodes")
 def simulate_active_electrodes() -> None:
     """Compare passive cables with candidate unity-buffer active electrodes."""
-    _, values = schematic_data()
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
     assert_active_electrode_simulation(values)
     print_active_electrode_simulation(values)
 
@@ -1162,7 +1214,8 @@ def simulate_active_electrodes() -> None:
 @app.command("simulate-sharper-filter")
 def simulate_sharper_filter() -> None:
     """Report the ideal, non-gating dual-biquad synthesis target."""
-    _, values = schematic_data()
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
     assert_sharper_filter_simulation(values)
     print_sharper_filter_simulation(values)
 
