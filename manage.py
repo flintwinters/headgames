@@ -17,7 +17,9 @@ from rich.table import Table
 
 from circuit_sim import (
     ActiveElectrodeChannel,
+    AmplifierLimits,
     CascadedBandpass,
+    DiodeModel,
     EegPathComponents,
     EnvelopeResult,
     SignalTone,
@@ -27,7 +29,9 @@ from circuit_sim import (
     simulate_ac,
     simulate_active_electrode_inputs,
     simulate_electrode_inputs,
-    simulate_peak_detector,
+    simulate_nonideal_electrode_inputs,
+    simulate_ideal_peak_detector,
+    simulate_precision_peak_detector,
 )
 from physical_filter import (
     FilterStressResult,
@@ -47,6 +51,16 @@ app = typer.Typer(no_args_is_help=True)
 console = Console()
 PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
+
+LM324_ACQUISITION = AmplifierLimits(
+    "LM324N acquisition", 35_000.0, 700_000.0, 7e-3, 250e-9, 0.3e6,
+    0.020, 2.0, 5e-3, 0.0, 2.0, 50e-6,
+)
+LM358_DETECTOR = AmplifierLimits(
+    "LM358N detector", 35_000.0, 700_000.0, 7e-3, 150e-9, 0.3e6,
+    0.020, 2.0, 5e-3, 0.0, 2.0, 50e-6,
+)
+DETECTOR_DIODE = DiodeModel()
 
 
 class VerificationError(RuntimeError):
@@ -399,6 +413,23 @@ def artifact_fixture_outputs(
     )
 
 
+def physical_artifact_fixture_outputs(
+    values: dict[str, str], include_alpha: bool
+) -> tuple[tuple[float, complex], ...]:
+    """Solve the passive fixture with finite-A0/GBW LM324 acquisition."""
+    model = eeg_path_model(values)
+    return tuple(
+        (
+            tone.frequency_hz,
+            simulate_nonideal_electrode_inputs(
+                model, tone.frequency_hz, tone.meas_peak_v, tone.ref_peak_v,
+                20_000.0, 100_000.0, LM324_ACQUISITION,
+            ),
+        )
+        for tone in artifact_fixture_tones(include_alpha)
+    )
+
+
 def active_electrode_channels(
 ) -> tuple[ActiveElectrodeChannel, ActiveElectrodeChannel]:
     """Return the declared candidate buffer and deliberately unequal cables."""
@@ -460,10 +491,10 @@ def verify_artifact_baseline_regression(values: dict[str, str]) -> None:
     assert abs(direct - nodal) < 1e-9
 
     release = resistance(values["R18"]) * capacitance(values["C17"])
-    without_alpha = simulate_peak_detector(
+    without_alpha = simulate_ideal_peak_detector(
         artifact_fixture_outputs(values, include_alpha=False), release
     )
-    with_alpha = simulate_peak_detector(
+    with_alpha = simulate_ideal_peak_detector(
         artifact_fixture_outputs(values, include_alpha=True), release
     )
     relative_change = (with_alpha.mean_v - without_alpha.mean_v) / without_alpha.mean_v
@@ -477,8 +508,8 @@ def print_artifact_simulation(values: dict[str, str]) -> None:
     release = resistance(values["R18"]) * capacitance(values["C17"])
     without_outputs = artifact_fixture_outputs(values, include_alpha=False)
     with_outputs = artifact_fixture_outputs(values, include_alpha=True)
-    without_alpha = simulate_peak_detector(without_outputs, release)
-    with_alpha = simulate_peak_detector(with_outputs, release)
+    without_alpha = simulate_ideal_peak_detector(without_outputs, release)
+    with_alpha = simulate_ideal_peak_detector(with_outputs, release)
     relative_change = (with_alpha.mean_v - without_alpha.mean_v) / without_alpha.mean_v
 
     contribution_table = Table(title="ALPHA-node artifact fixture contributions")
@@ -541,10 +572,10 @@ def verify_active_electrode_baseline_regression(values: dict[str, str]) -> None:
     assert abs(balanced_common_mode) < 1e-12
 
     release = resistance(values["R18"]) * capacitance(values["C17"])
-    artifacts = simulate_peak_detector(
+    artifacts = simulate_ideal_peak_detector(
         active_artifact_fixture_outputs(values, include_alpha=False), release
     )
-    with_alpha = simulate_peak_detector(active, release)
+    with_alpha = simulate_ideal_peak_detector(active, release)
     relative_change = (with_alpha.mean_v - artifacts.mean_v) / artifacts.mean_v
     # Active buffering is expected to remove cable/common-mode conversion, but
     # it cannot remove differential electrode motion. Preserve that distinction.
@@ -560,10 +591,10 @@ def print_active_electrode_simulation(values: dict[str, str]) -> None:
     release = resistance(values["R18"]) * capacitance(values["C17"])
     passive_outputs = artifact_fixture_outputs(values, include_alpha=True)
     active_outputs = active_artifact_fixture_outputs(values, include_alpha=True)
-    active_artifacts = simulate_peak_detector(
+    active_artifacts = simulate_ideal_peak_detector(
         active_artifact_fixture_outputs(values, include_alpha=False), release
     )
-    active_with_alpha = simulate_peak_detector(active_outputs, release)
+    active_with_alpha = simulate_ideal_peak_detector(active_outputs, release)
     relative_change = (
         active_with_alpha.mean_v - active_artifacts.mean_v
     ) / active_artifacts.mean_v
@@ -701,14 +732,14 @@ def _stress_metrics(
     values: dict[str, str], first: MfbStageParts, second: MfbStageParts,
     opamp: OpAmpModel, supply_v: float, detector_release_s: float,
 ) -> tuple[float, float, float]:
-    artifacts = artifact_fixture_outputs(values, False)
-    with_alpha = artifact_fixture_outputs(values, True)
+    artifacts = physical_artifact_fixture_outputs(values, False)
+    with_alpha = physical_artifact_fixture_outputs(values, True)
     filtered_artifacts = _physical_filtered_outputs(artifacts, first, second, opamp)
     filtered_alpha = _physical_filtered_outputs(with_alpha, first, second, opamp)
-    artifact_env = simulate_peak_detector(filtered_artifacts, detector_release_s,
+    artifact_env = simulate_ideal_peak_detector(filtered_artifacts, detector_release_s,
                                           duration_seconds=2.0, sample_rate_hz=240.0,
                                           measurement_seconds=1.0)
-    alpha_env = simulate_peak_detector(filtered_alpha, detector_release_s,
+    alpha_env = simulate_ideal_peak_detector(filtered_alpha, detector_release_s,
                                        duration_seconds=2.0, sample_rate_hz=240.0,
                                        measurement_seconds=1.0)
     change = (alpha_env.mean_v - artifact_env.mean_v) / artifact_env.mean_v
@@ -718,7 +749,20 @@ def _stress_metrics(
         with_alpha, first, second, opamp))
     vref = supply_v / 2
     upper = supply_v - opamp.output_high_headroom_v
-    margin = min(vref - opamp.output_low_v, upper - vref) - max(stage1_peak, stage2_peak)
+    acquisition = eeg_path_model(values)
+    acquisition_noise_gain = 1 + (
+        acquisition.diff_feedback_resistance / acquisition.input_resistance
+    )
+    acquisition_dc_error = (
+        LM324_ACQUISITION.input_offset_v * acquisition_noise_gain
+        + LM324_ACQUISITION.input_bias_a * acquisition.diff_feedback_resistance
+    )
+    margin = (
+        min(vref - LM324_ACQUISITION.output_low_v,
+            supply_v - LM324_ACQUISITION.output_high_headroom_v - vref)
+        - max(sum(abs(output) for _, output in with_alpha), stage1_peak, stage2_peak)
+        - acquisition_dc_error
+    )
     current = max(
         abs(output) * abs(solve_stage_ac(first, opamp, frequency).output_current_a_per_v)
         for frequency, output in with_alpha
@@ -781,11 +825,51 @@ def run_filter_stress(
 
     nominal = MfbStageParts()
     noise = integrated_output_noise_rms(nominal, nominal, opamp)
-    alpha_peak = abs(artifact_fixture_outputs(values, True)[-1][1]) * abs(
+    alpha_peak = abs(physical_artifact_fixture_outputs(values, True)[-1][1]) * abs(
         solve_cascade_ac(nominal, nominal, opamp, 10.0).transfer
     )
     recovery = recovery_bound_seconds(nominal, opamp, release * (1.2 if tier == "build" else 1.0))
     if tier == "build":
+        detector_artifacts = simulate_precision_peak_detector(
+            _physical_filtered_outputs(
+                physical_artifact_fixture_outputs(values, False), nominal, nominal, opamp
+            ),
+            resistance(values["R18"]), capacitance(values["C17"]), 8.0, 4.0,
+            LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
+            sample_rate_hz=2_000.0, measurement_seconds=1.0,
+        )
+        detector_alpha = simulate_precision_peak_detector(
+            _physical_filtered_outputs(
+                physical_artifact_fixture_outputs(values, True), nominal, nominal, opamp
+            ),
+            resistance(values["R18"]), capacitance(values["C17"]), 8.0, 4.0,
+            LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
+            sample_rate_hz=2_000.0, measurement_seconds=1.0,
+        )
+        physical_change = (
+            detector_alpha.envelope.mean_v - detector_artifacts.envelope.mean_v
+        ) / detector_artifacts.envelope.mean_v
+        minimum_change = min(minimum_change, physical_change)
+        minimum_margin = min(
+            minimum_margin,
+            detector_artifacts.minimum_output_margin_v,
+            detector_alpha.minimum_output_margin_v,
+            detector_artifacts.minimum_common_mode_margin_v,
+            detector_alpha.minimum_common_mode_margin_v,
+        )
+        maximum_current = max(
+            maximum_current,
+            detector_artifacts.peak_output_current_a,
+            detector_alpha.peak_output_current_a,
+        )
+        if (detector_artifacts.clipped_samples or detector_alpha.clipped_samples) and first_failure is None:
+            first_failure = (
+                "nominal detector: LM358 diode-drive output reaches its declared "
+                "swing limit during normal rectifier operation"
+            )
+        if min(detector_artifacts.minimum_common_mode_margin_v,
+               detector_alpha.minimum_common_mode_margin_v) < 0.250 and first_failure is None:
+            first_failure = "nominal detector: common-mode margin is below 250 mV"
         if noise >= alpha_peak * 0.10 and first_failure is None:
             first_failure = f"noise {noise:.6g} V exceeds {alpha_peak*0.10:.6g} V"
         if recovery > 2.0 and first_failure is None:
@@ -922,8 +1006,8 @@ def envelope_alpha_change(
     release_seconds: float,
 ) -> tuple[float, EnvelopeResult, EnvelopeResult]:
     """Return relative mean-envelope change and both detector results."""
-    artifact_envelope = simulate_peak_detector(artifacts, release_seconds)
-    alpha_envelope = simulate_peak_detector(with_alpha, release_seconds)
+    artifact_envelope = simulate_ideal_peak_detector(artifacts, release_seconds)
+    alpha_envelope = simulate_ideal_peak_detector(with_alpha, release_seconds)
     relative_change = (
         alpha_envelope.mean_v - artifact_envelope.mean_v
     ) / artifact_envelope.mean_v
@@ -1163,8 +1247,17 @@ def test() -> None:
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
     python_stress = run_filter_stress(values, "build", 0, 0x48454144)
-    require(python_stress.cases == 1_024 and python_stress.first_failure is None,
-            "physical Python baseline regression changed")
+    require(python_stress.cases == 1_024,
+            "physical Python corner enumeration changed")
+    require(
+        python_stress.first_failure is not None
+        and "node margin" in python_stress.first_failure,
+        "expected nonideal LM324 headroom failure was not reproduced",
+    )
+    require(python_stress.minimum_node_margin_v < 0.0,
+            "nonideal acquisition unexpectedly retained positive headroom")
+    require(python_stress.maximum_output_current_a > 0.0,
+            "physical detector did not exercise finite diode/output current")
     require_spice_models()
     console.print(
         "[green]Regression suite passed.[/green] This reproduces documented "
@@ -1258,3 +1351,4 @@ if __name__ == "__main__":
         raise SystemExit(1) from None
     bounded_stage_sample,
     recovery_bound_seconds,
+    DiodeModel,
