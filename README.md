@@ -80,12 +80,14 @@ gain by less than 1%.
 There are currently no 1.5 nF capacitors in inventory. Do **not** substitute
 1 nF alone for `C11` and `C15`: with the 10 MΩ resistors that would move their
 low-pass corner from approximately 10.6 Hz to 15.9 Hz and further broaden the
-artifact-sensitive response. The planned common-value implementation is a
-matched 1 nF C0G capacitor in parallel with a matched 470 pF C0G capacitor at
-each location. The 1.47 nF total gives an approximately 10.8 Hz corner, only
-about 2% above the original target. Match the **combined capacitance** of the
-two parallel pairs. The authoritative schematic must show both physical
-capacitors when this substitution is implemented.
+artifact-sensitive response. The preferred inventory-first implementation at
+each location uses three 1 nF C0G capacitors: one capacitor in parallel with a
+series pair. Its equivalent capacitance is exactly 1.5 nF nominally
+(`1 nF + (1 nF / 2)`). Select six parts so the two three-capacitor networks have
+closely matched **combined capacitance**. A lower-part-count alternative, when
+470 pF C0G parts are available, is 1 nF in parallel with 470 pF; its 1.47 nF
+total gives an approximately 10.8 Hz corner. The authoritative schematic must
+show every physical capacitor when either substitution is implemented.
 
 An immediately viewable PDF is generated as `build/BUILD_NOW.pdf` with:
 

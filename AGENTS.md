@@ -54,10 +54,13 @@ before investing in downstream refinement.
 Acquisition impedance ratios are assembly invariants. Pair-match `R12/R22`
 (10 MΩ), `C11/C15` (nominally 1.5 nF), `C12/C14` (100 nF), and `R15/R21`
 (the reserved measured 474 kΩ pair). Inventory lacks 1.5 nF capacitors; the
-planned common-value substitution is 1 nF C0G in parallel with 470 pF C0G at
-each feedback location. Match the two 1.47 nF totals and represent both physical
-capacitors in the authoritative schematic. A lone 1 nF substitution is not
-equivalent: it moves the feedback low-pass corner from about 10.6 to 15.9 Hz.
+preferred inventory-first substitute at each feedback location is one 1 nF C0G
+capacitor in parallel with two series 1 nF C0G capacitors, giving exactly
+1.5 nF nominally. Match the two three-capacitor totals and represent all six
+physical capacitors in the authoritative schematic. A lone 1 nF substitution
+is not equivalent: it moves the feedback low-pass corner from about 10.6 to
+15.9 Hz. A 1 nF + 470 pF parallel pair is an acceptable lower-part-count
+alternative when 470 pF C0G parts are available.
 
 Anything conductively connected to electrodes must use an isolated wired DC
 supply with no mains-earth or USB connection while worn. Remove grounded
@@ -67,8 +70,8 @@ medical device.
 
 ## Current big tasks
 
-- Implement the matched 474 kΩ input pair and matched 1 nF + 470 pF feedback
-  capacitor pairs in the authoritative schematic after inventory confirmation.
+- Implement the matched 474 kΩ input pair and matched three-capacitor 1.5 nF
+  feedback networks in the authoritative schematic after inventory confirmation.
 - Reproduce the artifact fixture with an isolated physical EEG phantom and
   determine whether alpha remains distinguishable under electrode imbalance.
 - Bench-validate power, VREF, carrier/audio, differential response, filtering,
