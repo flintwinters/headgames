@@ -42,6 +42,15 @@ electrode source per input. At midpoint trims it predicts about 2,433 V/V at
 alpha selectivity, not as a substitute for noise, artifact, tolerance, or
 isolated bench validation.
 
+`manage.py simulate-artifacts` is the current project-survival test. Its
+declared stress fixture combines 20 kΩ/100 kΩ electrode mismatch, 1 mV at 2 Hz
+differential motion, 100 uV at 30 Hz differential muscle-like activity, and
+100 mV at 60 Hz common mode. Adding 50 uV at 10 Hz changes the ideal detector's
+mean envelope only 3.8%, below the provisional 25% distinguishability target.
+The architecture therefore has an unresolved artifact-rejection problem;
+validate the fixture amplitudes and response with an isolated physical phantom
+before investing in downstream refinement.
+
 Anything conductively connected to electrodes must use an isolated wired DC
 supply with no mains-earth or USB connection while worn. Remove grounded
 scopes, non-isolated bench supplies, USB, chargers, powered audio, and other
@@ -50,6 +59,8 @@ medical device.
 
 ## Current big tasks
 
+- Reproduce the artifact fixture with an isolated physical EEG phantom and
+  determine whether alpha remains distinguishable under electrode imbalance.
 - Bench-validate power, VREF, carrier/audio, differential response, filtering,
   and envelope behavior with no person connected.
 - Validate isolated-supply physiological pickup: artifacts first, then repeated

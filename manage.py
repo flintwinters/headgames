@@ -14,9 +14,12 @@ from rich.table import Table
 
 from circuit_sim import (
     EegPathComponents,
+    SignalTone,
     logarithmic_sweep,
     magnitude_db,
     simulate_ac,
+    simulate_electrode_inputs,
+    simulate_peak_detector,
 )
 
 
@@ -278,6 +281,109 @@ def print_eeg_simulation(values: dict[str, str]) -> None:
     )
 
 
+def artifact_fixture_outputs(
+    values: dict[str, str], include_alpha: bool
+) -> tuple[tuple[float, complex], ...]:
+    """Solve the explicit simultaneous artifact fixture at the ALPHA node."""
+    model = eeg_path_model(values)
+    # Peak amplitudes are deliberately explicit. Differential signals are
+    # split symmetrically between MEAS and REF; mains is common to both.
+    tones = [
+        SignalTone(2.0, 0.5e-3, -0.5e-3),  # 1 mV differential motion/drift
+        SignalTone(30.0, 50e-6, -50e-6),  # 100 uV differential muscle-like
+        SignalTone(60.0, 100e-3, 100e-3),  # 100 mV common-mode mains pickup
+    ]
+    if include_alpha:
+        tones.append(SignalTone(10.0, 25e-6, -25e-6))  # 50 uV differential
+    return tuple(
+        (
+            tone.frequency_hz,
+            simulate_electrode_inputs(
+                model,
+                tone.frequency_hz,
+                tone.meas_peak_v,
+                tone.ref_peak_v,
+                meas_electrode_resistance=20_000.0,
+                ref_electrode_resistance=100_000.0,
+            ),
+        )
+        for tone in tones
+    )
+
+
+def assert_artifact_simulation(values: dict[str, str]) -> None:
+    """Regression-check imbalance conversion and the contaminated envelope."""
+    model = eeg_path_model(values)
+    balanced_common_mode = simulate_electrode_inputs(
+        model, 60.0, 0.1, 0.1, 20_000.0, 20_000.0
+    )
+    assert abs(balanced_common_mode) < 1e-12
+
+    direct = simulate_ac(model, 10.0).total_gain
+    nodal = simulate_electrode_inputs(
+        model, 10.0, 0.5, -0.5, 20_000.0, 20_000.0
+    )
+    assert abs(direct - nodal) < 1e-9
+
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    without_alpha = simulate_peak_detector(
+        artifact_fixture_outputs(values, include_alpha=False), release
+    )
+    with_alpha = simulate_peak_detector(
+        artifact_fixture_outputs(values, include_alpha=True), release
+    )
+    relative_change = (with_alpha.mean_v - without_alpha.mean_v) / without_alpha.mean_v
+    assert 0.0 <= relative_change < 0.05, (
+        f"artifact fixture behavior changed unexpectedly: {relative_change:.1%}"
+    )
+
+
+def print_artifact_simulation(values: dict[str, str]) -> None:
+    """Report whether alpha survives the simultaneous artifact fixture."""
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    without_outputs = artifact_fixture_outputs(values, include_alpha=False)
+    with_outputs = artifact_fixture_outputs(values, include_alpha=True)
+    without_alpha = simulate_peak_detector(without_outputs, release)
+    with_alpha = simulate_peak_detector(with_outputs, release)
+    relative_change = (with_alpha.mean_v - without_alpha.mean_v) / without_alpha.mean_v
+
+    contribution_table = Table(title="ALPHA-node artifact fixture contributions")
+    contribution_table.add_column("Fixture")
+    contribution_table.add_column("Applied peak", justify="right")
+    contribution_table.add_column("ALPHA peak", justify="right")
+    labels = (
+        ("Motion/drift, differential", "1 mV @ 2 Hz"),
+        ("Muscle-like, differential", "100 uV @ 30 Hz"),
+        ("Mains, common mode", "100 mV @ 60 Hz"),
+        ("Eyes-closed alpha, differential", "50 uV @ 10 Hz"),
+    )
+    for (label, applied), (_, output) in zip(labels, with_outputs, strict=True):
+        contribution_table.add_row(label, applied, f"{abs(output):.3f} V")
+    console.print(contribution_table)
+
+    envelope_table = Table(title="Ideal 0.22 s peak-detector result")
+    envelope_table.add_column("Simultaneous fixture")
+    envelope_table.add_column("ENV mean above VREF", justify="right")
+    envelope_table.add_column("ENV range above VREF", justify="right")
+    envelope_table.add_row(
+        "Artifacts only",
+        f"{without_alpha.mean_v:.3f} V",
+        f"{without_alpha.minimum_v:.3f}-{without_alpha.maximum_v:.3f} V",
+    )
+    envelope_table.add_row(
+        "Artifacts + 50 uV alpha",
+        f"{with_alpha.mean_v:.3f} V",
+        f"{with_alpha.minimum_v:.3f}-{with_alpha.maximum_v:.3f} V",
+    )
+    console.print(envelope_table)
+    verdict = "PASS" if relative_change >= 0.25 else "FAIL"
+    color = "green" if verdict == "PASS" else "red"
+    console.print(
+        f"[{color}]{verdict}[/{color}]: adding alpha changes mean ENV by "
+        f"{relative_change:.1%}; the provisional distinguishability criterion is 25%."
+    )
+
+
 def assert_precision_detector(
     nets: dict[str, set[tuple[str, str]]], values: dict[str, str]
 ) -> None:
@@ -389,6 +495,7 @@ def test() -> None:
     assert_audio_output_stabilized(nets, values)
     assert_eeg_signal_path(nets, values)
     assert_eeg_simulation(values)
+    assert_artifact_simulation(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -402,6 +509,14 @@ def simulate_eeg() -> None:
     _, values = schematic_data()
     assert_eeg_simulation(values)
     print_eeg_simulation(values)
+
+
+@app.command("simulate-artifacts")
+def simulate_artifacts() -> None:
+    """Test alpha distinguishability under explicit simultaneous artifacts."""
+    _, values = schematic_data()
+    assert_artifact_simulation(values)
+    print_artifact_simulation(values)
 
 
 if __name__ == "__main__":
