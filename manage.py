@@ -1381,6 +1381,43 @@ VLOAD vref 0 4.5
     return overshoot, settling
 
 
+def spice_ti_rectifier_transient() -> tuple[float, float]:
+    """Exercise the TI model in the precision rectifier's nonlinear loop."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / "ti_rectifier_tran.cir"
+    deck.write_text(f"""Headgames TI LM358 precision-rectifier transient
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VREF vref 0 4.5
+BINPUT alpha vref V=ternary_fcn(time>2 && time<3,0.2*sin(2*pi*10*(time-2)),0)
+XRECT alpha hold vcc 0 drive LMX58_LM2904
+D1 drive hold D4148
+RDC drive hold 1g
+RREL hold vref 220k
+CHOLD hold vref 1u
+.model D4148 D(Is=4n Rs=2 Cjo=4p N=1.9)
+.ic v(hold)=4.5 v(drive)=4.5
+.tran 500u 5.2 0 200u uic
+.print tran v(hold)
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 2)
+    require(rows, "TI rectifier transient produced no samples")
+    baseline_values = [voltage-4.5 for time, voltage in rows if 1.5 <= time <= 1.9]
+    require(baseline_values, "TI rectifier transient lacks a baseline")
+    baseline = sum(baseline_values) / len(baseline_values)
+    peak = max(voltage-4.5 for time, voltage in rows if 2.5 <= time <= 3.0)
+    target = baseline + 0.1 * (peak-baseline)
+    recovery = 2.0
+    for time, voltage in rows:
+        if time >= 3.0 and voltage-4.5 <= target:
+            recovery = time-3.0
+            break
+    require(0.10 <= peak <= 0.30, f"TI rectifier held peak is {peak:.6g} V")
+    require(recovery < 2.0, f"TI rectifier recovery is {recovery:.3f} s")
+    return peak, recovery
+
+
 def spice_filter_ac_crosscheck() -> tuple[float, float, float]:
     """Return nominal-model DC error and worst Python/SPICE AC errors."""
     require_spice_models()
@@ -1770,12 +1807,14 @@ def characterize_ti_model_command() -> None:
     slew = spice_ti_slew_characterization()
     low_swing, high_swing = spice_ti_swing_characterization()
     noise = spice_ti_noise_characterization()
+    detector_peak, detector_recovery = spice_ti_rectifier_transient()
     overshoot_150, settling_150 = spice_ti_cable_transient(150.0)
     overshoot_250, settling_250 = spice_ti_cable_transient(250.0)
     console.print(f"TI follower error: {error*1e3:.3f} mV; quiescent current: {current*1e3:.3f} mA.")
     console.print(f"TI follower LF gain/phase: {gain:.6f} / {phase:.3f}°; -3 dB bandwidth: {bandwidth/1e6:.3f} MHz.")
     console.print(f"TI input bias: {bias_current*1e9:.2f} nA; positive slew: {slew/1e6:.3f} V/µs; loaded swing: {low_swing:.3f}–{high_swing:.3f} V.")
     console.print(f"TI integrated 0.5–100 Hz follower noise: {noise*1e6:.3f} µV RMS.")
+    console.print(f"TI precision-rectifier peak/recovery: {detector_peak:.3f} V / {detector_recovery:.3f} s.")
     console.print(f"TI isolated-cable overshoot: {overshoot_150:.1%} at 150 pF, {overshoot_250:.1%} at 250 pF; settling: {settling_150*1e6:.1f}/{settling_250*1e6:.1f} µs.")
     require(max(overshoot_150, overshoot_250) <= 0.20,
             "TI cable overshoot exceeds 20%")
