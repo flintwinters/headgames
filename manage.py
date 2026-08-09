@@ -11,6 +11,7 @@ import shutil
 import subprocess
 from dataclasses import replace
 from functools import lru_cache
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -102,11 +103,10 @@ ACTIVE_ELECTRODE_CONDUCTORS = (
 # boundary explicit: mathematical substitutes and adjacent circuitry do not
 # count as implementation equivalence.
 FRONTIER_ALIGNMENT = (
-    ("electrode-site active buffers", True, False),
+    ("electrode-site active buffers", True, True),
     ("LM324 acquisition and ALPHA", True, True),
-    ("two-stage post-ALPHA MFB filter", True, False),
-    ("LM358 precision peak detector", True, True),
-    ("carrier control and LM386 audio output", False, True),
+    ("direct bipolar carrier control", True, True),
+    ("LM386 speaker-current output", True, True),
 )
 
 
@@ -286,11 +286,14 @@ def assert_eeg_signal_path(
         require(actual == expected,
                 f"{pin[0]} pin {pin[1]} topology mismatch: {sorted(actual or ())}")
 
-    # MEAS reaches U2B's non-inverting input through two safety resistors and
-    # the series C12/R15 input. R12||C11 returns that node to VREF.
+    # Each electrode reaches its electrode-site LM358 follower only after two
+    # independent safety resistors.  Each follower then drives an independent
+    # 8.2 kohm cable-isolation resistor before the five-wire boundary.
     exact_net(("J2", "2"), {("J2", "2"), ("R16", "2")})
     exact_net(("R16", "1"), {("R16", "1"), ("R14", "2")})
-    exact_net(("R14", "1"), {("R14", "1"), ("C12", "2")})
+    exact_net(("R14", "1"), {("R14", "1"), ("U1", "3")})
+    exact_net(("U1", "1"), {("U1", "1"), ("U1", "2"), ("R24", "2")})
+    exact_net(("R24", "1"), {("R24", "1"), ("C12", "2")})
     exact_net(("C12", "1"), {("C12", "1"), ("R15", "2")})
     exact_net(("U2", "5"), {
         ("U2", "5"), ("R15", "1"), ("R12", "1"), ("C11", "1")
@@ -300,7 +303,9 @@ def assert_eeg_signal_path(
     # R22||C15 closes feedback from pin 7 at DIFF_OUT.
     exact_net(("J2", "1"), {("J2", "1"), ("R19", "2")})
     exact_net(("R19", "1"), {("R19", "1"), ("R20", "2")})
-    exact_net(("R20", "1"), {("R20", "1"), ("C14", "2")})
+    exact_net(("R20", "1"), {("R20", "1"), ("U1", "5")})
+    exact_net(("U1", "7"), {("U1", "7"), ("U1", "6"), ("R25", "2")})
+    exact_net(("R25", "1"), {("R25", "1"), ("C14", "2")})
     exact_net(("C14", "1"), {("C14", "1"), ("R21", "2")})
     exact_net(("U2", "6"), {
         ("U2", "6"), ("R21", "1"), ("R22", "2"), ("C15", "2")
@@ -320,6 +325,11 @@ def assert_eeg_signal_path(
     alpha_net = next(net for net in nets.values() if ("U2", "8") in net)
     require({("U2", "8"), ("RV2", "1"), ("C16", "1")} <= alpha_net,
             "ALPHA feedback does not match the simulated parallel network")
+    require(("R6", "2") in alpha_net,
+            "ALPHA must drive U2D directly through R6")
+    require(resistance(values["R24"]) == 8_200.0
+            and resistance(values["R25"]) == 8_200.0,
+            "both active-buffer cable outputs require 8.2 kohm isolation")
     vref_net = next(net for net in nets.values() if ("U2", "10") in net)
     require({("U2", "10"), ("R12", "2"), ("C11", "2")} <= vref_net,
             "MEAS shunt and U2C bias must return to VREF")
@@ -347,12 +357,6 @@ def assert_eeg_signal_path(
     lp_trim_net = next(net for net in nets.values() if ("RV2", "2") in net)
     assert hp_trim_net == {("R17", "1"), ("RV1", "2")}
     assert lp_trim_net == {("R23", "1"), ("RV2", "2")}
-
-    detector_release = resistance(values["R18"]) * capacitance(values["C17"])
-    assert math.isclose(detector_release, 0.22), (
-        f"detector release time constant is {detector_release:.3f} s"
-    )
-
 
 def eeg_path_model(
     values: dict[str, str], hp_trim_fraction: float = 0.5, lp_trim_fraction: float = 0.5
@@ -541,7 +545,7 @@ def nominal_sonification_build(values: dict[str, str], electrode: str = "wet"
         capacitance(values["C10"]), resistance(values["R5"]),
         resistance(values["R8"]), capacitance(values["C5"]),
         capacitance(values["C6"]), resistance(values["R10"]),
-        capacitance(values["C7"]), 9.0,
+        capacitance(values["C7"]), 9.0, 4.5,
     )
 
 
@@ -569,6 +573,7 @@ def sampled_sonification_build(values: dict[str, str], electrode: str,
             synthesis.r1.sample(rng), synthesis.r2.sample(rng),
             synthesis.r5.sample(rng), move(100e-9, 0.10), move(100e-9, 0.10),
         ))
+    supply = rng.uniform(8.8, 9.2)
     return replace(
         nominal, meas=channel(nominal.meas), ref=channel(nominal.ref),
         alpha_input_ohm=move(nominal.alpha_input_ohm, 0.05),
@@ -584,7 +589,7 @@ def sampled_sonification_build(values: dict[str, str], electrode: str,
         c6_output_f=move(nominal.c6_output_f, 0.10),
         r10_zobel_ohm=move(nominal.r10_zobel_ohm, 0.05),
         c7_zobel_f=move(nominal.c7_zobel_f, 0.10),
-        supply_v=rng.uniform(8.8, 9.2),
+        supply_v=supply, vref_v=supply/2+rng.uniform(-50e-3, 50e-3),
     )
 
 
@@ -614,12 +619,26 @@ def verify_sonification_integrity(values: dict[str, str]) -> None:
     """Prove endpoint, phase, perturbation, and derivative contracts are real."""
     build = nominal_sonification_build(values, "wet")
     candidate = next(item for item in CANDIDATES if item.name == "alpha")
-    result = simulate_build(build, candidate, 4, noise_seed=0x54455354)
+    result = simulate_build(build, candidate, 4, sample_rate_hz=40_000.0,
+                            noise_seed=0x54455354, noise_enabled=False)
+    refined = simulate_build(build, candidate, 4, sample_rate_hz=80_000.0,
+                             noise_seed=0x54455354, noise_enabled=False)
     require(result.phases_executed == 4, "sonification phase count was not executed")
     require(result.worst.speaker_rms_a > 0,
             "sonification did not reach the speaker-current endpoint")
     require(result.worst.alpha_modulation_rms_a > 0,
             "alpha did not produce measured speaker-current modulation")
+    require(abs(result.worst.frequency_hz-refined.worst.frequency_hz)
+            / refined.worst.frequency_hz <= 0.025,
+            f"carrier frequency is not converged: {result.worst.frequency_hz:.3f}/"
+            f"{refined.worst.frequency_hz:.3f} Hz")
+    require(abs(result.worst.duty_cycle-refined.worst.duty_cycle) <= 0.02,
+            f"carrier duty is not converged: {result.worst.duty_cycle:.5f}/"
+            f"{refined.worst.duty_cycle:.5f}")
+    require(abs(result.worst.modulation_ratio-refined.worst.modulation_ratio)
+            / max(refined.worst.modulation_ratio, 1e-15) <= 0.15,
+            f"speaker modulation ratio is not converged: "
+            f"{result.worst.modulation_ratio:.6f}/{refined.worst.modulation_ratio:.6f}")
     for frequency in (8.0, 10.0, 12.0):
         numerical = sonification_group_delay(build, candidate, frequency)
         exact = closed_form_group_delay(build, candidate, frequency)
@@ -632,6 +651,20 @@ def verify_sonification_integrity(values: dict[str, str]) -> None:
             "independent safety-resistor leaves moved together")
     require(left.mfb[0] != left.mfb[1],
             "independent MFB stages moved together")
+
+
+def _sonification_frontier_case(arguments):
+    """Picklable worker for one complete build/candidate/R6 experiment."""
+    candidate, r6, base, phase_steps, seed, build_index = arguments
+    r6_rng = random.Random(seed ^ (build_index*0x9E3779B1) ^ int(r6))
+    build = replace(base, r6_ohm=r6*(1+r6_rng.uniform(-0.05, 0.05)))
+    result = simulate_build(
+        build, candidate, phase_steps,
+        noise_seed=seed ^ (build_index*0x85EBCA6B),
+    )
+    delay = max(sonification_group_delay(build, candidate, 8+0.1*index)
+                for index in range(41))
+    return candidate.name, r6, build_index, result, delay
 
 
 def active_electrode_channels(electrode: str | None = None
@@ -1897,8 +1930,6 @@ def test() -> None:
     assert_audio_output_stabilized(nets, values)
     assert_eeg_signal_path(nets, values)
     assert_eeg_simulation(values)
-    verify_artifact_baseline_regression(values)
-    verify_active_electrode_baseline_regression(values)
     verify_electrode_profiles()
     verify_physical_filter_synthesis()
     verify_inventory_synthesis(values)
@@ -1910,29 +1941,11 @@ def test() -> None:
     require(500 <= expected_carrier <= 1_000,
             f"analytical carrier frequency is {expected_carrier:.1f} Hz")
     require(math.isfinite(expected_carrier), "analytical oscillator frequency is not finite")
-    assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
     assert_erc_clean()
-    python_stress = run_filter_stress(values, "build", 0, 0x48454144)
-    require(python_stress.cases == 1,
-            "nominal physical frontier must evaluate exactly once")
-    require(python_stress.first_failure is None,
-            f"nominal physical frontier failed: {python_stress.first_failure}")
-    require(python_stress.minimum_node_margin_v >= 0.250,
-            "nominal physical frontier lacks 250 mV node margin")
-    require(python_stress.maximum_output_current_a > 0.0,
-            "physical detector did not exercise finite diode/output current")
     require_spice_models()
-    require(
-        tuple(name for name, modeled, schematic in FRONTIER_ALIGNMENT if modeled != schematic)
-        == (
-            "electrode-site active buffers",
-            "two-stage post-ALPHA MFB filter",
-            "carrier control and LM386 audio output",
-        ),
-        "documented KiCad/model alignment audit changed without reconciliation",
-    )
+    require_frontier_alignment()
     console.print(
         "[green]Regression suite passed.[/green] This reproduces documented "
         "results; it does not establish neurofeedback or hardware acceptance."
@@ -1944,8 +1957,11 @@ def accept() -> None:
     """Require the selected electrode-to-speaker model and native topology."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
-    assert_precision_detector(nets, values)
     require_frontier_alignment()
+    candidate = next(item for item in CANDIDATES if item.name == "alpha")
+    result = simulate_build(nominal_sonification_build(values, "wet"), candidate, 16)
+    require(result.first_failure is None,
+            f"nominal end-to-end sonification gate: {result.first_failure}")
     console.print("[bold green]MODEL ACCEPTANCE PASS: every declared model gate passed.[/bold green]")
 
 
@@ -1975,6 +1991,7 @@ def simulate_sonification_frontier(
     samples: int = typer.Option(2_001, min=1),
     seed: int = typer.Option(0x48454144, min=0),
     phase_steps: int = typer.Option(16, min=16),
+    workers: int = typer.Option(4, min=1, max=32),
 ) -> None:
     """Execute every physical build/phase and select only from passing paths."""
     require(electrode in ("wet", "dry"), "electrode must be wet or dry")
@@ -1987,31 +2004,33 @@ def simulate_sonification_frontier(
     builds = [nominal_sonification_build(values, electrode)]
     builds.extend(sampled_sonification_build(values, electrode, rng)
                   for _ in range(samples))
-    rows = []
+    tasks = [
+        (candidate, r6, build, phase_steps, seed, build_index)
+        for candidate in CANDIDATES for r6 in r6_values
+        for build_index, build in enumerate(builds)
+    ]
+    aggregates = {
+        (candidate.name, r6): [math.inf, math.inf, 0.0, None]
+        for candidate in CANDIDATES for r6 in r6_values
+    }
     total_phases = 0
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        for name, r6, build_index, result, delay in executor.map(
+                _sonification_frontier_case, tasks, chunksize=1):
+            require(result.phases_executed == phase_steps,
+                    f"{name}/{r6:g}: phase coverage mismatch")
+            total_phases += result.phases_executed
+            aggregate = aggregates[(name, r6)]
+            aggregate[0] = min(aggregate[0], result.worst.modulation_ratio)
+            aggregate[1] = min(aggregate[1], result.worst.alpha_to_carrier)
+            aggregate[2] = max(aggregate[2], delay)
+            if result.first_failure and aggregate[3] is None:
+                aggregate[3] = f"build {build_index}: {result.first_failure}"
+    rows = []
     for candidate in CANDIDATES:
         for r6 in r6_values:
-            minimum_ratio = math.inf
-            minimum_alpha = math.inf
-            worst_delay = 0.0
-            first_failure = None
-            for build_index, base in enumerate(builds):
-                r6_rng = random.Random(seed ^ (build_index*0x9E3779B1)
-                                       ^ int(r6) ^ candidate.physical_parts)
-                build = replace(base, r6_ohm=r6*(1+r6_rng.uniform(-0.05, 0.05)))
-                result = simulate_build(build, candidate, phase_steps)
-                require(result.phases_executed == phase_steps,
-                        f"{candidate.name}/{r6:g}: phase coverage mismatch")
-                total_phases += result.phases_executed
-                minimum_ratio = min(minimum_ratio, result.worst.modulation_ratio)
-                minimum_alpha = min(minimum_alpha, result.worst.alpha_to_carrier)
-                worst_delay = max(worst_delay, max(
-                    sonification_group_delay(build, candidate, 8+0.1*index)
-                    for index in range(41)))
-                if result.first_failure and first_failure is None:
-                    first_failure = f"build {build_index}: {result.first_failure}"
-            rows.append((candidate, r6, worst_delay, minimum_ratio,
-                         minimum_alpha, first_failure))
+            ratio, alpha, delay, failure = aggregates[(candidate.name, r6)]
+            rows.append((candidate, r6, delay, ratio, alpha, failure))
     expected = len(CANDIDATES)*len(r6_values)*(samples+1)*phase_steps
     require(total_phases == expected,
             f"executed {total_phases} phases, expected {expected}")
@@ -2101,7 +2120,6 @@ def compare_physical_frontier() -> None:
     """Compare the implemented KiCad blocks with the physical model boundary."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
-    assert_precision_detector(nets, values)
     print_frontier_alignment()
     require_frontier_alignment()
 

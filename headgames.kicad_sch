@@ -1966,7 +1966,7 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "LM358N PRECISION PEAK DETECTOR: 0.22 s RELEASE TO VREF"
+	(text "ALPHA DIRECTLY MODULATES U2D THROUGH R6; NO ENVELOPE OR HOLD STAGE"
 		(exclude_from_sim no)
 		(at 260.604 259.08 0)
 		(effects
@@ -1977,7 +1977,7 @@
 		)
 		(uuid "1ccb737b-e1ab-4dde-a2fb-7838ac234077")
 	)
-	(text "EXPECTED ON 9 V BATTERY: VREF near 4.5 V and a quiet, steady approximately 721 Hz tone."
+	(text "EXPECTED ON 9 V BATTERY: VREF near 4.5 V and a quiet, steady approximately 683 Hz tone."
 		(exclude_from_sim no)
 		(at 30.734 246.38 0)
 		(effects
@@ -1988,7 +1988,7 @@
 		)
 		(uuid "53c6de62-4bc7-48af-9def-64fa68c49d8a")
 	)
-	(text "U1B MATCHED AC-COUPLED DIFFERENCE AMPLIFIER"
+	(text "U2B MATCHED AC-COUPLED DIFFERENCE AMPLIFIER"
 		(exclude_from_sim no)
 		(at 128.524 259.08 0)
 		(effects
@@ -1999,7 +1999,7 @@
 		)
 		(uuid "8b8ae3e5-ed15-4f4c-9a1d-8f0232096ba9")
 	)
-	(text "R21/R22/R23: SECOND SERIES LIMITERS — BIAS 1M; MEAS/REF 100k"
+	(text "R13/R16/R19: SECOND SERIES LIMITERS — BIAS 1M; MEAS/REF 100k"
 		(exclude_from_sim no)
 		(at 48.26 137.16 0)
 		(effects
@@ -2009,6 +2009,15 @@
 			(justify left bottom)
 		)
 		(uuid "b4000000-0000-4000-8000-000000000001")
+	)
+	(text "ACTIVE ASSEMBLY FIVE-WIRE BOUNDARY: MEAS_BUFFERED, REF_BUFFERED, BIAS, ISOLATED VCC, ISOLATED RETURN"
+		(exclude_from_sim no)
+		(at 70 213.36 0)
+		(effects
+			(font (size 1.27 1.27))
+			(justify left bottom)
+		)
+		(uuid "d4000000-0000-4000-8000-000000000001")
 	)
 	(text "BODY-CONNECTED EXPERIMENT: BATTERY POWER ONLY. REMOVE GROUNDED TEST EQUIPMENT BEFORE ATTACHING ELECTRODES."
 		(exclude_from_sim no)
@@ -2021,7 +2030,7 @@
 		)
 		(uuid "de8f9a1e-c301-4f1b-af6b-eb92a6626dca")
 	)
-	(text "ELECTRODE INPUT / PASSIVE COMMON-MODE BIAS"
+	(text "ELECTRODE INPUT / REDUNDANT CURRENT LIMITING"
 		(exclude_from_sim no)
 		(at 42.164 259.08 0)
 		(effects
@@ -2032,7 +2041,7 @@
 		)
 		(uuid "e4fde1cd-19a2-47d0-870e-d6088e6b8f7b")
 	)
-	(text "U1C 8.7-12.4 Hz ALPHA BAND-PASS / GAIN"
+	(text "U2C 8.7-12.4 Hz ALPHA BAND-PASS / GAIN"
 		(exclude_from_sim no)
 		(at 198.374 259.08 0)
 		(effects
@@ -2043,7 +2052,7 @@
 		)
 		(uuid "eee7eec1-d3d4-48d9-b09e-0245c197a2f5")
 	)
-	(text "J2: PIN 1 = +9 V, PIN 3 = 0 V; PIN 2 IS A KEY. ISOLATED BATTERY ONLY WHILE WORN."
+	(text "J1: PIN 1 = +9 V, PIN 3 = 0 V; PIN 2 IS A KEY. ISOLATED BATTERY ONLY WHILE WORN."
 		(exclude_from_sim no)
 		(at 30.734 251.46 0)
 		(effects
@@ -2064,12 +2073,6 @@
 		(uuid "c3000000-0000-4000-8000-000000000001")
 	)
 	(junction
-		(at 298.45 148.59)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "0126f823-f8e6-456f-ba21-1334d4274efe")
-	)
-	(junction
 		(at 255.27 107.95)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -2086,12 +2089,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "0d70d9bf-2330-45da-86be-0da00c73b2c7")
-	)
-	(junction
-		(at 320.04 148.59)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "0fd22fbc-de21-4bc7-b3a0-ee39a3557ec8")
 	)
 	(junction
 		(at 223.52 146.05)
@@ -2128,12 +2125,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "3e7e4825-c735-4c8f-a9ba-22d60960a364")
-	)
-	(junction
-		(at 241.3 158.75)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "47bac008-c0b1-4185-abaf-bd8ddd368005")
 	)
 	(junction
 		(at 298.45 107.95)
@@ -2224,12 +2215,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "788f35a8-c63e-4c49-8791-3f1a35fa6233")
-	)
-	(junction
-		(at 307.34 148.59)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "7b052961-72f2-44b0-b430-b064629bd2ba")
 	)
 	(junction
 		(at 262.89 38.1)
@@ -2411,16 +2396,6 @@
 	)
 	(wire
 		(pts
-			(xy 200.66 124.46) (xy 320.04 124.46)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0e752be6-e62f-4eb9-b020-8fd7333d700a")
-	)
-	(wire
-		(pts
 			(xy 252.73 38.1) (xy 262.89 38.1)
 		)
 		(stroke
@@ -2531,16 +2506,6 @@
 	)
 	(wire
 		(pts
-			(xy 86.36 151.13) (xy 91.44 151.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1c5985b1-deca-4aec-a2c5-7ce1aaaf1304")
-	)
-	(wire
-		(pts
 			(xy 134.62 139.7) (xy 140.97 139.7)
 		)
 		(stroke
@@ -2588,16 +2553,6 @@
 			(type default)
 		)
 		(uuid "249348c9-1476-40b0-99bb-f5a3e08554b8")
-	)
-	(wire
-		(pts
-			(xy 320.04 170.18) (xy 317.5 170.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "25136d36-4429-40ca-8e07-111547657c10")
 	)
 	(wire
 		(pts
@@ -2661,16 +2616,6 @@
 	)
 	(wire
 		(pts
-			(xy 307.34 148.59) (xy 309.88 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3087b143-3d99-40d2-a43d-19d68ee1b5f2")
-	)
-	(wire
-		(pts
 			(xy 193.04 76.2) (xy 201.93 76.2)
 		)
 		(stroke
@@ -2708,16 +2653,6 @@
 			(type default)
 		)
 		(uuid "3aa453ce-a606-4794-85cf-7b507556348c")
-	)
-	(wire
-		(pts
-			(xy 320.04 148.59) (xy 317.5 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3b9dc0c7-26fc-44f3-9670-87b06cc95398")
 	)
 	(wire
 		(pts
@@ -2871,16 +2806,6 @@
 	)
 	(wire
 		(pts
-			(xy 260.35 148.59) (xy 285.75 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "569b2be2-b730-49eb-aae6-f48de5f4482f")
-	)
-	(wire
-		(pts
 			(xy 120.65 76.2) (xy 125.73 76.2)
 		)
 		(stroke
@@ -3021,16 +2946,6 @@
 	)
 	(wire
 		(pts
-			(xy 241.3 158.75) (xy 241.3 170.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "716a5afd-0f45-400c-82d1-15a0ddc35b69")
-	)
-	(wire
-		(pts
 			(xy 257.81 81.28) (xy 255.27 81.28)
 		)
 		(stroke
@@ -3088,26 +3003,6 @@
 			(type default)
 		)
 		(uuid "7aa84619-b9a1-4b76-a473-2a4e72ee29d3")
-	)
-	(wire
-		(pts
-			(xy 307.34 170.18) (xy 309.88 170.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7c574e27-e3ac-4f80-9c3e-b2622c8e6d84")
-	)
-	(wire
-		(pts
-			(xy 293.37 148.59) (xy 298.45 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7d12b2b2-bb71-4452-8a8f-af4c415be9d0")
 	)
 	(wire
 		(pts
@@ -3261,16 +3156,6 @@
 	)
 	(wire
 		(pts
-			(xy 298.45 158.75) (xy 298.45 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9666f9bd-02ff-43ef-a580-4b8c46520eb3")
-	)
-	(wire
-		(pts
 			(xy 140.97 146.05) (xy 146.05 146.05)
 		)
 		(stroke
@@ -3311,16 +3196,6 @@
 	)
 	(wire
 		(pts
-			(xy 320.04 148.59) (xy 320.04 170.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9d387fc8-d1b1-493d-9da2-fe51d6bd1bff")
-	)
-	(wire
-		(pts
 			(xy 176.53 88.9) (xy 181.61 88.9)
 		)
 		(stroke
@@ -3341,26 +3216,6 @@
 	)
 	(wire
 		(pts
-			(xy 245.11 180.34) (xy 260.35 180.34)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a3000000-0000-4000-8000-000000000001")
-	)
-	(wire
-		(pts
-			(xy 260.35 180.34) (xy 260.35 172.72)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a3000000-0000-4000-8000-000000000002")
-	)
-	(wire
-		(pts
 			(xy 157.48 162.56) (xy 166.37 162.56)
 		)
 		(stroke
@@ -3368,16 +3223,6 @@
 			(type default)
 		)
 		(uuid "a808eae7-fd62-4706-8431-c913465a6c70")
-	)
-	(wire
-		(pts
-			(xy 223.52 146.05) (xy 245.11 146.05)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ab08eefc-df76-4473-b7ac-b5a45196b045")
 	)
 	(wire
 		(pts
@@ -3398,16 +3243,6 @@
 			(type default)
 		)
 		(uuid "ad5dbb88-2d8c-4867-8527-08b3d4f9eab3")
-	)
-	(wire
-		(pts
-			(xy 241.3 151.13) (xy 245.11 151.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ae30fd94-677e-494e-8e3e-3fa8baabcbee")
 	)
 	(wire
 		(pts
@@ -3498,16 +3333,6 @@
 			(type default)
 		)
 		(uuid "b3000000-0000-4000-8000-000000000006")
-	)
-	(wire
-		(pts
-			(xy 86.36 146.05) (xy 91.44 146.05)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b30062bd-04a1-4154-8831-85ebeb412f9d")
 	)
 	(wire
 		(pts
@@ -3681,16 +3506,6 @@
 	)
 	(wire
 		(pts
-			(xy 298.45 148.59) (xy 307.34 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c621214b-1d2f-4139-80ed-e1bbdec2514f")
-	)
-	(wire
-		(pts
 			(xy 59.69 107.95) (xy 68.58 107.95)
 		)
 		(stroke
@@ -3801,16 +3616,6 @@
 	)
 	(wire
 		(pts
-			(xy 245.11 180.34) (xy 245.11 175.26)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "da9b99b2-3b8f-4a2b-8fc0-1718e6aefebc")
-	)
-	(wire
-		(pts
 			(xy 200.66 162.56) (xy 200.66 148.59)
 		)
 		(stroke
@@ -3818,16 +3623,6 @@
 			(type default)
 		)
 		(uuid "dab12d6d-d91a-4d9b-8f83-02afa601baea")
-	)
-	(wire
-		(pts
-			(xy 241.3 158.75) (xy 298.45 158.75)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ddef2dd9-45ad-4278-9227-4af679b907ad")
 	)
 	(wire
 		(pts
@@ -3881,16 +3676,6 @@
 	)
 	(wire
 		(pts
-			(xy 307.34 148.59) (xy 307.34 170.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "e47881d3-0106-4d53-abc7-92fa5358d190")
-	)
-	(wire
-		(pts
 			(xy 127 139.7) (xy 120.65 139.7)
 		)
 		(stroke
@@ -3911,16 +3696,6 @@
 	)
 	(wire
 		(pts
-			(xy 241.3 151.13) (xy 241.3 158.75)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ec5afb11-05d5-426e-be9c-682c12e9ae3a")
-	)
-	(wire
-		(pts
 			(xy 223.52 162.56) (xy 223.52 146.05)
 		)
 		(stroke
@@ -3938,16 +3713,6 @@
 			(type default)
 		)
 		(uuid "ef45abb1-b02a-496f-ac4d-582b39dd72e1")
-	)
-	(wire
-		(pts
-			(xy 241.3 170.18) (xy 245.11 170.18)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f04bc285-509f-4d1a-b9e1-8f375ef72e43")
 	)
 	(wire
 		(pts
@@ -4011,16 +3776,6 @@
 	)
 	(wire
 		(pts
-			(xy 320.04 124.46) (xy 320.04 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f9da1d16-cba9-4973-b9ea-59e96d1b9098")
-	)
-	(wire
-		(pts
 			(xy 120.65 124.46) (xy 120.65 134.62)
 		)
 		(stroke
@@ -4028,6 +3783,116 @@
 			(type default)
 		)
 		(uuid "faa16e81-ff4d-4f19-96b7-6fc35da8423d")
+	)
+	(wire
+		(pts
+			(xy 102.87 180.34) (xy 107.95 180.34)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000001")
+	)
+	(wire
+		(pts
+			(xy 102.87 180.34) (xy 105.41 180.34)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000002")
+	)
+	(wire
+		(pts
+			(xy 105.41 180.34) (xy 105.41 185.42)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000003")
+	)
+	(wire
+		(pts
+			(xy 105.41 185.42) (xy 87.63 185.42)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000004")
+	)
+	(wire
+		(pts
+			(xy 87.63 185.42) (xy 87.63 182.88)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000005")
+	)
+	(wire
+		(pts
+			(xy 102.87 198.12) (xy 107.95 198.12)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000006")
+	)
+	(wire
+		(pts
+			(xy 102.87 198.12) (xy 105.41 198.12)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000007")
+	)
+	(wire
+		(pts
+			(xy 105.41 198.12) (xy 105.41 203.2)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000008")
+	)
+	(wire
+		(pts
+			(xy 105.41 203.2) (xy 87.63 203.2)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-000000000009")
+	)
+	(wire
+		(pts
+			(xy 87.63 203.2) (xy 87.63 200.66)
+		)
+		(stroke (width 0) (type default))
+		(uuid "d1000000-0000-4000-8000-00000000000a")
+	)
+	(label "MEAS_SITE"
+		(at 87.63 177.8 180)
+		(effects (font (size 1.27 1.27)) (justify right bottom))
+		(uuid "d2000000-0000-4000-8000-000000000001")
+	)
+	(label "MEAS_SITE"
+		(at 86.36 146.05 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "d2000000-0000-4000-8000-000000000002")
+	)
+	(label "MEAS_BUFFERED"
+		(at 115.57 180.34 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "d2000000-0000-4000-8000-000000000003")
+	)
+	(label "MEAS_BUFFERED"
+		(at 91.44 146.05 180)
+		(effects (font (size 1.27 1.27)) (justify right bottom))
+		(uuid "d2000000-0000-4000-8000-000000000004")
+	)
+	(label "REF_SITE"
+		(at 87.63 195.58 180)
+		(effects (font (size 1.27 1.27)) (justify right bottom))
+		(uuid "d2000000-0000-4000-8000-000000000005")
+	)
+	(label "REF_SITE"
+		(at 86.36 151.13 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "d2000000-0000-4000-8000-000000000006")
+	)
+	(label "REF_BUFFERED"
+		(at 115.57 198.12 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "d2000000-0000-4000-8000-000000000007")
+	)
+	(label "REF_BUFFERED"
+		(at 91.44 151.13 180)
+		(effects (font (size 1.27 1.27)) (justify right bottom))
+		(uuid "d2000000-0000-4000-8000-000000000008")
 	)
 	(label "REF"
 		(at 76.2 151.13 180)
@@ -4069,7 +3934,7 @@
 		)
 		(uuid "39c43cfd-03b6-4dd4-9e2b-2c0435253778")
 	)
-	(label "ENV"
+	(label "ALPHA"
 		(at 157.48 88.9 0)
 		(effects
 			(font
@@ -4079,24 +3944,9 @@
 		)
 		(uuid "3d8a4d47-9c3c-4859-b7b3-e0e988b374e7")
 	)
-	(label "HOLD"
-		(at 275.59 158.75 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "4675d9b9-542b-422f-aabb-e1ea63fed608")
-	)
 	(label "ALPHA"
-		(at 231.14 146.05 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
+		(at 218.44 146.05 0)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "840d67f8-3599-4d98-bba7-0d27f8314de0")
 	)
 	(label "VREF"
@@ -4108,26 +3958,6 @@
 			(justify right bottom)
 		)
 		(uuid "8aea3299-bbb2-4c40-b516-c6e10ec30aa1")
-	)
-	(label "DRV"
-		(at 275.59 148.59 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "a2000000-0000-4000-8000-000000000004")
-	)
-	(label "ENV"
-		(at 260.35 172.72 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "a2000000-0000-4000-8000-000000000006")
 	)
 	(label "CARRIER"
 		(at 203.2 76.2 0)
@@ -7015,24 +6845,24 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:D_Schottky")
-		(at 289.56 148.59 180)
+		(lib_id "Device:R")
+		(at 111.76 180.34 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "00000000-0000-0000-0000-00001000002c")
-		(property "Reference" "D1"
-			(at 289.56 143.1036 0)
+		(property "Reference" "R24"
+			(at 111.76 175.0822 90)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "1N4148 LOW-LEAKAGE"
-			(at 289.56 145.415 0)
+		(property "Value" "8.2k"
+			(at 111.76 177.3936 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7040,7 +6870,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 289.56 148.59 0)
+			(at 111.76 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7048,19 +6878,20 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 289.56 148.59 0)
+			(at 111.76 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Description" "Common low-leakage small-signal silicon diode; forward drop is compensated by the precision detector feedback loop"
-			(at 289.56 148.59 0)
+		(property "Description" "Selected LM358 cable-isolation resistor; phase margin remains bench-gated"
+			(at 111.76 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -7072,7 +6903,7 @@
 		(instances
 			(project "headgames"
 				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
-					(reference "D1")
+					(reference "R24")
 					(unit 1)
 				)
 			)
@@ -7080,16 +6911,15 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 313.69 148.59 90)
-		(mirror x)
+		(at 111.76 198.12 270)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "00000000-0000-0000-0000-00001000002d")
-		(property "Reference" "R18"
-			(at 312.5216 150.368 0)
+		(property "Reference" "R25"
+			(at 111.76 192.8622 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7097,8 +6927,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "220k"
-			(at 314.833 150.368 0)
+		(property "Value" "8.2k"
+			(at 111.76 195.1736 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7107,7 +6937,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 313.69 148.59 0)
+			(at 111.76 198.12 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7115,19 +6945,20 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 313.69 148.59 0)
+			(at 111.76 198.12 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Description" ""
-			(at 313.69 148.59 0)
+		(property "Description" "Selected LM358 cable-isolation resistor; phase margin remains bench-gated"
+			(at 111.76 198.12 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -7139,74 +6970,7 @@
 		(instances
 			(project "headgames"
 				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
-					(reference "R18")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Device:C")
-		(at 313.69 170.18 90)
-		(mirror x)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "00000000-0000-0000-0000-00001000002e")
-		(property "Reference" "C17"
-			(at 312.5216 173.101 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "1u"
-			(at 314.833 173.101 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 313.69 170.18 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 313.69 170.18 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 313.69 170.18 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "4f7a0b1e-35cb-4b2e-a3b0-34b433b7f9a7")
-		)
-		(pin "2"
-			(uuid "ce0d6789-7b98-4001-940e-17a2ea20ce6e")
-		)
-		(instances
-			(project "headgames"
-				(path "/16bca6b0-2f64-4676-a185-d512cb0de7e5"
-					(reference "C17")
+					(reference "R25")
 					(unit 1)
 				)
 			)
@@ -7544,7 +7308,7 @@
 	)
 	(symbol
 		(lib_id "Amplifier_Operational:LM358")
-		(at 252.73 148.59 0)
+		(at 95.25 180.34 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -7552,7 +7316,7 @@
 		(dnp no)
 		(uuid "a1000000-0000-4000-8000-000000000001")
 		(property "Reference" "U1"
-			(at 252.73 139.2682 0)
+			(at 95.25 171.0182 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7560,7 +7324,7 @@
 			)
 		)
 		(property "Value" "LM358N INVENTORY"
-			(at 252.73 141.5796 0)
+			(at 95.25 173.3296 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7585,8 +7349,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Inventory LM358N dual op amp used for precision detection"
-			(at 252.73 148.59 0)
+		(property "Description" "Electrode-site MEAS unity-gain buffer"
+			(at 95.25 180.34 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7629,7 +7393,7 @@
 	)
 	(symbol
 		(lib_id "Amplifier_Operational:LM358")
-		(at 252.73 172.72 0)
+		(at 95.25 198.12 0)
 		(unit 2)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -7637,7 +7401,7 @@
 		(dnp no)
 		(uuid "a1000000-0000-4000-8000-000000000002")
 		(property "Reference" "U1"
-			(at 252.73 163.3982 0)
+			(at 95.25 188.7982 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7645,7 +7409,7 @@
 			)
 		)
 		(property "Value" "LM358N INVENTORY"
-			(at 252.73 165.7096 0)
+			(at 95.25 191.1096 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7670,8 +7434,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Inventory LM358N dual op amp used for precision detection"
-			(at 252.73 172.72 0)
+		(property "Description" "Electrode-site REF unity-gain buffer"
+			(at 95.25 198.12 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7755,7 +7519,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Inventory LM358N dual op amp used for precision detection"
+		(property "Description" "Electrode-site LM358N active-buffer power unit"
 			(at 40.64 71.12 0)
 			(effects
 				(font

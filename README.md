@@ -29,7 +29,7 @@ Use the root entrypoint:
 
 ```sh
 python3 manage.py test
-python3 manage.py simulate-sonification --candidate selected --electrode wet
+python3 manage.py simulate-sonification --candidate alpha --electrode wet
 python3 manage.py simulate-sonification-frontier --electrode wet --samples 2001 --seed 1212498244 --phase-steps 16
 python3 manage.py synthesize-cable-isolation
 python3 manage.py accept
@@ -37,25 +37,23 @@ python3 manage.py accept
 
 `test` reproduces durable regressions; it is not acceptance. Wet electrodes
 gate and dry electrodes are informational. Only `accept` may print `MODEL
-ACCEPTANCE PASS`, and it currently fails closed because the native schematic
-still implements the historical detector-centered circuit.
+ACCEPTANCE PASS`. The native schematic now matches the selected direct path,
+but acceptance remains closed because the nominal noisy wet/alpha run fails
+the alpha-modulation gate.
 
-The nominal fixed-family frontier currently selects the broad existing ALPHA
-weighting at 34.13 ms worst 8–12 Hz group delay and 0.1726 alpha/artifact
-speaker-modulation ratio. One MFB section measures 82.41 ms and 1.2699; two
-sections measure 134.51 ms and 9.1975 and remain report-only. The stateful U2D
-and bounded LM386 model reports roughly 682 Hz carrier frequency plus duty,
-sidebands, harmonics, current, clipping, latching, and node margins.
+The stateful U2D and bounded LM386 model reports roughly 683 Hz carrier
+frequency plus duty, sidebands, harmonics, speaker current, clipping, latching,
+and node margins. The current nominal wet/alpha run executes all 16 requested
+phases but fails its alpha-modulation gate; no candidate is selected.
 
 The TI LMx58 transient sweep selects the smallest passing stocked cable
 isolation resistor, 8.2 kΩ, with 0.0% measured overshoot and 8.4 µs worst
 settling across 150/250 pF loads. A separate loop-return or bench measurement
 is still required for the 45° phase-margin gate.
 
-The current `--samples` and `--phase-steps` frontier options declare the target
-stress contract but the exhaustive physical-build/phase transient runner is
-not yet implemented. Accordingly, neither those arguments nor nominal model
-success constitutes hardware acceptance.
+The frontier runner executes the requested physical builds and phases at the
+speaker-current endpoint, but it has not produced a verified passing campaign.
+The previously reported proxy frontier and candidate selection remain invalid.
 
 ## Matched acquisition parts
 

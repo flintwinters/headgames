@@ -15,8 +15,10 @@ does not improve the physiological experiment.
 path is wet active electrodes, differential acquisition, selected low-delay
 alpha weighting, direct bipolar control of the roughly 700 Hz U2D relaxation
 oscillator, the gain-20 LM386 stage, and speaker current. The current native
-schematic still contains the historical LM358/1N4148 peak detector and is not
-yet reconciled; model acceptance therefore remains closed.
+schematic implements the same selected path, including the two LM358N active
+buffers, independent 8.2 kΩ cable isolation, the five-wire assembly boundary,
+and direct ALPHA-to-R6 control. Model acceptance remains closed because the
+nominal noisy end-to-end experiment fails its alpha-modulation gate.
 
 MEAS and REF each pass through two independent 100 kΩ resistors before the
 electrode-site LM358N buffer. BIAS uses two independent 1 MΩ resistors. The
@@ -47,6 +49,7 @@ Current limited block-level evidence is:
 | Stateful oscillator prototype | Produces a nominal carrier near 682 Hz; not validated with the complete electrode-to-speaker stimulus or physical spreads |
 | LM386 behavioral prototype | Implements nominal gain, input resistance, bandwidth, clipping, and load; not yet sufficient for output-power or nonlinear claims |
 | TI cable transient | 100 Ω fails the prior 250 pF overshoot gate; the smallest passing stocked value is 8.2 kΩ with 0.0% measured overshoot and 8.4 µs settling |
+| End-to-end nominal wet/alpha run | Executes all 16 requested phases at the speaker-current endpoint, but fails: worst alpha/carrier modulation is 0.24% versus the 1% gate |
 
 The LM386 model is bounded by its official gain-20, 50 kΩ input, and 300 kHz
 bandwidth characteristics. Its nonlinear output claims remain bench-gated.
@@ -55,10 +58,8 @@ and two-MFB implementations are historical evidence, not hardware candidates.
 
 ## Current big tasks
 
-- Establish loop-return phase margin for the selected 8.2 kΩ cable isolation,
-  then reconcile both active buffers and the five-wire boundary in KiCad.
-- Remove or fail-close the invalid frontier and selection interfaces, then
-  implement a genuine end-to-end electrode-to-speaker-current experiment.
+- Establish loop-return phase margin for the selected 8.2 kΩ cable isolation.
+- Finish hardening the genuine end-to-end electrode-to-speaker-current experiment.
   Every requested seeded build and phase combination must exercise every
   relevant independent stocked part and the complete simultaneous stimulus.
 - Select the weighting topology and synthesize `R6` only after that valid
