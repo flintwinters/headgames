@@ -1174,7 +1174,7 @@ def spice_ti_translation_smoke() -> tuple[float, float]:
     output_dir.mkdir(parents=True, exist_ok=True)
     deck = output_dir / "ti_translation_dc.cir"
     deck.write_text(f"""Headgames translated TI LM358 DC characterization
-.include {TI_NGSPICE_MODEL.resolve()}
+.include {TI_MODEL.resolve()}
 VCC vcc 0 9
 VIN plus 0 4.5
 XU plus out vcc 0 out LMX58_LM2904
@@ -1183,7 +1183,8 @@ RL out 0 10k
 .print op v(plus) v(out) i(VCC)
 .end
 """, encoding="utf-8")
-    completed = subprocess.run(["ngspice", "-b", str(deck)], cwd=deck.parent,
+    completed = subprocess.run(
+        ["ngspice", "-D", "ngbehavior=ps", "-b", str(deck)], cwd=deck.parent,
                                check=False, capture_output=True, text=True,
                                encoding="utf-8", errors="replace")
     require(completed.returncode == 0,
