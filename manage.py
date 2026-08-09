@@ -71,6 +71,18 @@ FRONTIER_CAPACITOR_BAND = 0.05
 FRONTIER_SAMPLES = 2_000
 DETECTOR_DIODE = DiodeModel()
 
+# A block is aligned only when the same physical implementation is both drawn
+# in the native schematic and exercised by the frontier model.  Keep the
+# boundary explicit: mathematical substitutes and adjacent circuitry do not
+# count as implementation equivalence.
+FRONTIER_ALIGNMENT = (
+    ("electrode-site active buffers", True, False),
+    ("LM324 acquisition and ALPHA", True, True),
+    ("two-stage post-ALPHA MFB filter", True, False),
+    ("LM358 precision peak detector", True, True),
+    ("carrier control and LM386 audio output", False, True),
+)
+
 
 class VerificationError(RuntimeError):
     """A durable project acceptance condition was not satisfied."""
@@ -80,6 +92,30 @@ def require(condition: bool, message: str) -> None:
     """Raise explicitly so optimization can never erase a verification gate."""
     if not condition:
         raise VerificationError(message)
+
+
+def require_frontier_alignment() -> None:
+    """Reject acceptance unless KiCad and the physical model cover one circuit."""
+    mismatches = [
+        name for name, modeled, schematic in FRONTIER_ALIGNMENT
+        if modeled != schematic
+    ]
+    require(not mismatches, "KiCad/model boundary mismatch: " + "; ".join(mismatches))
+
+
+def print_frontier_alignment() -> None:
+    """Report the implementation boundary without privileging either source."""
+    table = Table(title="KiCad versus physical-frontier implementation")
+    table.add_column("Circuit block")
+    table.add_column("Physical model", justify="center")
+    table.add_column("KiCad", justify="center")
+    table.add_column("Finding")
+    for name, modeled, schematic in FRONTIER_ALIGNMENT:
+        finding = "same boundary" if modeled == schematic else (
+            "model-only proposal" if modeled else "schematic-only downstream block"
+        )
+        table.add_row(name, "yes" if modeled else "no", "yes" if schematic else "no", finding)
+    console.print(table)
 
 
 def require_assertions_enabled() -> None:
@@ -1320,6 +1356,15 @@ def test() -> None:
     require(python_stress.maximum_output_current_a > 0.0,
             "physical detector did not exercise finite diode/output current")
     require_spice_models()
+    require(
+        tuple(name for name, modeled, schematic in FRONTIER_ALIGNMENT if modeled != schematic)
+        == (
+            "electrode-site active buffers",
+            "two-stage post-ALPHA MFB filter",
+            "carrier control and LM386 audio output",
+        ),
+        "documented KiCad/model alignment audit changed without reconciliation",
+    )
     console.print(
         "[green]Regression suite passed.[/green] This reproduces documented "
         "results; it does not establish neurofeedback or hardware acceptance."
@@ -1331,6 +1376,8 @@ def accept() -> None:
     """Require every declared physical-filter candidate acceptance gate."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
+    assert_precision_detector(nets, values)
+    require_frontier_alignment()
     verify_filter_stress(values)
     console.print("[bold green]ACCEPTANCE PASS: every declared gate passed.[/bold green]")
 
@@ -1340,6 +1387,16 @@ def simulate_filter_network() -> None:
     """Cross-check and report the candidate physical MFB network."""
     verify_physical_filter_synthesis()
     print_physical_filter_synthesis()
+
+
+@app.command("compare-physical-frontier")
+def compare_physical_frontier() -> None:
+    """Compare the implemented KiCad blocks with the physical model boundary."""
+    nets, values = schematic_data()
+    assert_eeg_signal_path(nets, values)
+    assert_precision_detector(nets, values)
+    print_frontier_alignment()
+    require_frontier_alignment()
 
 
 @app.command("simulate-filter-stress")

@@ -43,7 +43,10 @@ evidence is:
 | Comprehensive TI PSpice model | Retained unchanged for provenance; ngspice 44.2 still rejects its `IF()`/switch syntax |
 
 Thus active electrodes plus sharper selectivity are the current testing
-frontier, and the declared nominal simulation gate passes. The
+frontier, but hardware acceptance is closed because they exist only in the
+model. Conversely, KiCad's carrier and LM386 output are beyond the current
+physical simulation boundary. The acquisition/ALPHA and precision detector are
+implemented on both sides and their native topology is checked. The
 proposed two-stage MFB network has strong modeled selectivity. Its build
 frontier uses ordinary ±1% resistor and ±5% capacitor tolerances while keeping
 supply and environmental conditions nominal. Acquisition DC error
@@ -62,6 +65,10 @@ clear future boundary for buffers or an instrumentation amplifier.
 
 ## Current big tasks
 
+- Reconcile the physical model and native KiCad circuit block by block: select
+  and model a real active-electrode amplifier, implement the validated MFB
+  sections in KiCad, and either model carrier/audio or explicitly end both
+  representations at `ENV`.
 - Validate the nominal LM324 acquisition DC balance, MFB response, and detector
   behavior on the bench before considering a schematic edit.
 - Extend VREF, temperature, trim spreads, deterministic phases, and detailed

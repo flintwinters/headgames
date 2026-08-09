@@ -24,6 +24,7 @@ Use the single durable entrypoint:
 
 ```sh
 python3 manage.py test
+python3 manage.py compare-physical-frontier
 python3 manage.py accept
 python3 manage.py simulate-eeg
 python3 manage.py simulate-artifacts
@@ -33,8 +34,11 @@ python3 manage.py simulate-filter-network
 python3 manage.py simulate-filter-stress --tier build --samples 2000 --seed 1212498244
 ```
 
-Current simulation acceptance status: **PASS for the declared nominal operating
-frontier; physical bench validation remains required.**
+Current circuit acceptance status: **CLOSED because the physical frontier and
+native KiCad schematic do not yet implement the same circuit.** The active
+electrode buffers and two MFB sections exist only in the model; carrier/audio
+exists only downstream in KiCad. Physical bench validation also remains
+required after reconciliation.
 
 The neurofeedback acceptance criterion is at least 25%. Simulation and report
 commands may exit successfully after reproducing a documented failing result;
