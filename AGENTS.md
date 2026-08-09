@@ -2,97 +2,73 @@
 
 ## Motivation
 
-Headgames seeks the smallest credible direct analog EEG neurofeedback path:
-scalp potential differences become audible without sampling or DSP. Favor a
-fast, understandable proof of concept, expose limitations, and avoid complexity
-that does not improve the core physiological experiment.
+Headgames seeks the smallest credible direct analog EEG sonification path:
+scalp potential differences become audible continuously, without sampling,
+DSP, analysis windows, peak hold, or envelope release. Favor low latency and
+an understandable proof of concept; measure analog group delay rather than
+calling the circuit delay-free. Expose limitations and avoid complexity that
+does not improve the physiological experiment.
 
 ## Architecture and invariants
 
-`headgames.kicad_sch` is the sole authoritative schematic. The isolated 9 V
-MVP contains three electrodes (`MEAS`, `REF`, `BIAS`), matched AC-coupled
-LM324N acquisition, adjustable alpha gain/filtering, an LM358N precision peak
-detector with 1N4148 and 0.22 s release, analog carrier control, and an LM386
-speaker stage. The analog feedback path must remain entirely analog; any future
-logging stays electrically safe and outside it.
+`headgames.kicad_sch` is the sole authoritative schematic. The intended worn
+path is wet active electrodes, differential acquisition, selected low-delay
+alpha weighting, direct bipolar control of the roughly 700 Hz U2D relaxation
+oscillator, the gain-20 LM386 stage, and speaker current. The current native
+schematic still contains the historical LM358/1N4148 peak detector and is not
+yet reconciled; model acceptance therefore remains closed.
 
-MEAS and REF each enter through two independent 100 kΩ series resistors before
-the two channels of an electrode-site LM358N from inventory; BIAS uses two independent 1 MΩ
-resistors. The active assembly boundary has exactly five conductors: buffered
-MEAS, buffered REF, BIAS, isolated VCC, and isolated return. These do not relax
-the isolated-battery rule. While worn, remove grounded scopes, bench supplies, USB, chargers,
-powered audio, and every mains-earth path. This is not a medical device.
+MEAS and REF each pass through two independent 100 kΩ resistors before the
+electrode-site LM358N buffer. BIAS uses two independent 1 MΩ resistors. The
+active assembly boundary has exactly five conductors: buffered MEAS, buffered
+REF, BIAS, isolated VCC, and isolated return. The entire worn system remains
+battery-isolated. Remove grounded scopes, bench supplies, USB, chargers,
+powered audio, and every mains-earth path while worn. This is not a medical
+device.
 
-Acquisition ratios are assembly invariants. Pair-match `R12/R22` (10 MΩ),
+Acquisition ratios remain assembly invariants. Pair-match `R12/R22` (10 MΩ),
 `R15/R21` (reserved measured 474 kΩ pair), `C12/C14` (100 nF), and `C11/C15`
-(1.5 nF equivalent). Build each 1.5 nF feedback network from one 1 nF C0G in
-parallel with two series 1 nF C0G parts; match the totals and show all physical
-parts in the schematic. A 1 nF + 470 pF pair is acceptable when available; a
-lone 1 nF is not equivalent.
+(1.5 nF equivalent). Each 1.5 nF network is one 1 nF C0G in parallel with two
+series 1 nF C0G parts; show every physical part. A stocked 1 nF + 470 pF pair
+is acceptable; a lone 1 nF is not equivalent.
 
-The root `manage.py` is the sole verification entrypoint. Current architectural
-evidence is:
+Current model evidence is:
 
 | Model | Result |
 |---|---|
-| Existing path | 2,433 V/V at 10 Hz; broad 3.69–14.71 Hz −3 dB span |
-| Artifact survival | Alpha changes mean `ENV` 3.8%, below the 25% target |
-| Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
-| Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
-| Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| Inventory-aware MFB synthesis | Deterministic stocked networks reproduce 255 kΩ / 64.897 kΩ / 510 kΩ with at most four resistors per effective element; KiCad values override stale BOM comments |
-| Wet/dry electrode frontier | Wet Randles interface gates; dry is informational. Both include explicit interface impedance and the 100 Ω/150–250 pF cable-stability contract |
-| Inventory-only physical Python tier | Wet stress moves every resistor leaf and unmarked capacitor independently at its declared or conservative ±5% R/±10% C bound; the required full gate is not yet accepted |
-| Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
-| Comprehensive TI PSpice model | The unchanged hash-locked source passes DC and AC through ngspice's native PSpice frontend. The 100 Ω/250 pF cable case has 21.6% overshoot, above the 20% gate; acceptance remains closed |
+| Broad ALPHA candidate | 34.13 ms worst 8–12 Hz group delay; alpha/artifact ratio 0.1726; selected normalized Pareto knee |
+| One stocked MFB reference | 82.41 ms; ratio 1.2699 |
+| Two-MFB historical reference | 134.51 ms; ratio 9.1975; report-only |
+| Stateful U2D/LM386 behavior | About 682 Hz carrier; finite swing, duty, sidebands, harmonics, current, clipping, and latching are reported |
+| TI cable transient | 100 Ω fails the prior 250 pF overshoot gate; the smallest passing stocked value is 8.2 kΩ with 0.0% measured overshoot and 8.4 µs settling |
 
-Thus active electrodes plus sharper selectivity are the current testing
-frontier, but hardware acceptance is closed because they exist only in the
-model. Conversely, KiCad's carrier and LM386 output are beyond the current
-physical simulation boundary. The acquisition/ALPHA and precision detector are
-implemented on both sides and their native topology is checked. The
-proposed two-stage MFB network has strong modeled selectivity. Its build
-frontier uses each synthesized physical part's tolerance, defaulting unmarked
-resistors to ±5% and capacitors to ±10%, while keeping
-supply and environmental conditions nominal. Acquisition DC error
-uses typical input-offset current through the matched 10 MΩ paths and unity DC
-noise gain because the 474 kΩ input arms are AC-coupled. The model now includes
-active-electrode input/cable behavior, finite acquisition loop gain, and a stateful
-LM358/1N4148 detector; VREF, detailed acquisition transients, physical-detector
-cross-validation, and bench validation remain incomplete. The project-owned,
-source-locked ngspice model independently confirms nominal acquisition DC
-balance and MFB AC response; it deliberately does not reproduce the full TI
-PSpice macro-model. Active
-electrodes address cable/source imbalance but not motion; if pursued, both
-safety resistors must precede every electrode-site buffer and the worn supply
-must remain isolated. The LM324N remains an inventory-first compromise with a
-clear future boundary for buffers or an instrumentation amplifier.
+The LM386 model is bounded by its official gain-20, 50 kΩ input, and 300 kHz
+bandwidth characteristics. Its nonlinear output claims remain bench-gated.
+Wet electrodes gate; dry-electrode reports are informational. The detector
+and two-MFB implementations are historical evidence, not hardware candidates.
 
 ## Current big tasks
 
-- Resolve the TI-model cable-stability failure or revise the physical isolation
-  network from inventory, then extend characterization to noise, slew, swing,
-  bias current, acquisition, VREF, MFB, and detector behavior.
-- Reconcile the physical model and native KiCad circuit block by block: select
-  and model only inventory-stocked parts, implement the validated MFB
-  sections in KiCad, and either model carrier/audio or explicitly end both
-  representations at `ENV`.
-- Validate the nominal LM324 acquisition DC balance, MFB response, and detector
-  behavior on the bench before considering a schematic edit.
-- Extend VREF, temperature, trim spreads, deterministic phases, and detailed
-  acquisition transient recovery, then independently validate the model.
-- Implement the matched 474 kΩ pair and matched 1.5 nF networks after inventory
-  confirmation.
-- Reproduce the survival fixture with an isolated physical EEG phantom.
-- Bench-validate power, VREF, carrier/audio, acquisition, filtering, and envelope
-  with nobody connected; only then test isolated physiological pickup.
-- Record observed limitations before adding buffers, instrumentation gain,
-  independent logging, or other complexity.
+- Establish loop-return phase margin for the selected 8.2 kΩ cable isolation,
+  then reconcile both active buffers and the five-wire boundary in KiCad.
+- Extend the frontier runner so all requested seeded physical builds and phase
+  combinations genuinely exercise each independent stocked part through the
+  complete transient speaker-current model.
+- Implement the selected broad ALPHA-to-U2D control path in KiCad: synthesize
+  `R6`, remove the LM358 detector, diode, hold network, `HOLD`, `DRV`, and
+  `ENV`, and prove exact native-netlist equivalence through the speaker.
+- Extend characterization across VREF, supply, noise, slew, swing, clipping,
+  onset/offset, and carrier-edge response. The attempted TI VREF transient
+  fixture was removed because the vendor macro-model could not establish its
+  operating point.
+- Bench-validate the electrode-input-to-speaker-current path with an isolated
+  phantom and nobody connected before any physiological test.
 
 ## Working method
 
 Use stock KiCad symbols and validate the native schematic with `kicad-cli`.
-Preserve user layout changes and avoid parallel schematic sources. Put all
-durable checks behind the Typer/Rich `manage.py`; do not create ad-hoc tests.
-Reuse existing modules, keep safety annotations conspicuous, and commit every
-verified logical checkpoint with a detailed message.
+Never edit it while its lock exists. Preserve user layout and UI artifacts and
+avoid parallel schematic sources. Put durable checks behind the Typer/Rich
+root `manage.py`; do not create ad-hoc tests. Reuse existing modules, keep
+safety annotations conspicuous, and commit each verified logical checkpoint
+with a detailed message.
