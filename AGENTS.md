@@ -38,13 +38,15 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| Physical MFB nonideal Python tier | 1,024 corners + 20,000 seeded builds retain ≥262.5% physical-detector `ENV` change but reach −2.346 V worst node margin; fail from LM324 bias/offset headroom |
+| Active-electrode physical MFB Python tier | 1,024 corners + 20,000 seeded builds retain ≥851.2% physical-detector `ENV` change but reach −1.929 V worst node margin; fail from LM324 bias/offset headroom |
 | Required SPICE cross-check | Fail: ngspice 44.2 rejects TI Rev. C LMx58/LM2904 PSpice `IF()`/switch syntax; no agreement result exists |
 
-Thus sharper selectivity remains the leading candidate, but the hardware gate
-is closed. The proposed two-stage MFB network has strong modeled selectivity,
-but finite LM324 bias/offset through the 10 MΩ acquisition network violates
-headroom. The model now includes finite acquisition loop gain and a stateful
+Thus active electrodes plus sharper selectivity are the current testing
+frontier, but the hardware gate is closed. The proposed two-stage MFB network
+has strong modeled selectivity, but finite LM324 bias/offset through the 10 MΩ
+acquisition network violates headroom even with electrode-site buffers. The
+model now includes active-electrode input/cable behavior, finite acquisition
+loop gain, and a stateful
 LM358/1N4148 detector; VREF, temperature, detailed acquisition transients, and
 independent validation remain incomplete. The required TI-model SPICE check
 also fails at simulator compatibility. Active

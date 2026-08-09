@@ -61,7 +61,7 @@ differential alpha at 10 Hz.
 | Active electrodes | Mains falls 0.686→0.004 V, but motion reaches 1.000 V and `ENV` changes 2.8% | Fail; buffers solve cable imbalance, not motion |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
 | Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
-| Physical MFB nonideal Python tier | 1,024 corners + 20,000 seeded builds: ≥262.5% physical-detector `ENV` change; −2.346 V worst modeled node margin; 4.728 mA peak detector current | **Fail: LM324 bias/offset headroom** |
+| Active-electrode physical MFB Python tier | 1,024 corners + 20,000 seeded builds: ≥851.2% physical-detector `ENV` change; −1.929 V worst modeled node margin; 2.131 mA peak detector current | **Fail: LM324 bias/offset headroom** |
 | TI-model SPICE cross-check | TI Rev. C LMx58/LM2904 model fails in ngspice 44.2 on PSpice `IF()` and switch syntax | **Fail; hardware gate remains closed** |
 
 The active-electrode sensitivity model assumes 5 pF input capacitance, 1 MHz
@@ -70,13 +70,16 @@ GBW, 100 Ω output resistance, 10 pA bias, 25 nV/√Hz white noise, and unequal
 targets, not a hardware pass. Those baseline figures use ideal biquads and the
 explicitly named ideal envelope oracle; they are not physical-detector evidence.
 
-The physical candidate is two identical VREF-biased MFB stages, each using
+The physical frontier uses the declared electrode-site unity buffers followed
+by the existing finite-A0/GBW LM324 acquisition path and two identical
+VREF-biased MFB stages, each using
 255 kΩ, 64.9 kΩ, 510 kΩ, and two 100 nF parts with one additional LM358N
 package. Its Python model exposes internal nodes and branch currents, applies
 finite LM324 A0/GBW and worst-case bias/offset headroom, and steps a finite-GBW,
 slew- and rail-limited LM358 detector with explicit 1N4148 forward current,
 leakage, capacitance, hold R/C, and recovery state. Worst-case LM324 bias through
-the 10 MΩ acquisition network drives the declared headroom margin negative.
+the 10 MΩ acquisition network drives the declared headroom margin negative even
+after active electrodes remove most cable/source-imbalance conversion.
 The figures above do not include a successful independent simulator cross-check,
 do not establish probabilistic yield, and do not authorize a schematic edit.
 VREF remains ideal and the behavioral amplifier is not transistor-level. The non-gating abuse tier first fails at the
