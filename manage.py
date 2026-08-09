@@ -46,12 +46,18 @@ from physical_filter import (
     solve_cascade_ac,
     solve_stage_ac,
 )
+from inventory import (
+    parse_compact_value,
+    read_inventory,
+    synthesize_mfb,
+)
 
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
 PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
+BOM = PROJECT_ROOT / "headgames_bom.csv"
 
 LM324_ACQUISITION = AmplifierLimits(
     "LM324N acquisition", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.5e6,
@@ -787,6 +793,45 @@ def verify_physical_filter_synthesis() -> None:
     require(left == right, "bounded Monte Carlo seed is not reproducible")
 
 
+def verify_inventory_synthesis(values: dict[str, str]) -> None:
+    """Prove BOM parsing, KiCad precedence, and deterministic network search."""
+    inventory = read_inventory(BOM, values)
+    require(bool(inventory), "inventory BOM contains no passive values")
+    require(math.isclose(parse_compact_value("1.5n"), 1.5e-9, rel_tol=1e-15),
+            "compact capacitor parsing changed")
+    # The stale CSV comments for C11/C15 and C7 must never override KiCad.
+    capacitor_values = {item.value for item in inventory if item.kind == "C"}
+    require(capacitance(values["C11"]) in capacitor_values,
+            "native C11 value did not override the stale BOM comment")
+    require(capacitance(values["C7"]) in capacitor_values,
+            "native C7 value did not override the stale BOM comment")
+    first = synthesize_mfb(inventory)
+    second = synthesize_mfb(inventory)
+    require(first == second, "inventory MFB synthesis is not deterministic")
+    require(first.part_count <= 14,
+            "MFB synthesis exceeded four resistors per element")
+    for network in (first.r1, first.r2, first.r5):
+        low = network.endpoint((-1,) * network.part_count)
+        high = network.endpoint((1,) * network.part_count)
+        require(low < network.nominal < high,
+                "physical-part tolerance endpoints were not propagated")
+
+
+def print_inventory_synthesis(values: dict[str, str]) -> None:
+    inventory = read_inventory(BOM, values)
+    candidate = synthesize_mfb(inventory)
+    table = Table(title="Inventory-aware MFB synthesis (per stage)")
+    table.add_column("Element")
+    table.add_column("Physical network")
+    table.add_column("Effective value", justify="right")
+    for name, network in (("R1", candidate.r1), ("R2", candidate.r2), ("R5", candidate.r5)):
+        table.add_row(name, network.canonical, f"{network.nominal/1e3:.6g} kΩ")
+    table.add_row("C3/C4", "one stocked 100 nF part each", "100 nF")
+    table.add_row("f0 / Q / gain", "", f"{candidate.center_hz:.5f} Hz / {candidate.q:.5f} / {candidate.gain:.5f}")
+    table.add_row("Physical parts", "", str(candidate.part_count))
+    console.print(table)
+
+
 def print_physical_filter_synthesis() -> None:
     parts, opamp = MfbStageParts(), OpAmpModel()
     table = Table(title="Candidate physical MFB filter — non-schematic")
@@ -1377,6 +1422,7 @@ def test() -> None:
     verify_artifact_baseline_regression(values)
     verify_active_electrode_baseline_regression(values)
     verify_physical_filter_synthesis()
+    verify_inventory_synthesis(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -1422,6 +1468,14 @@ def simulate_filter_network() -> None:
     """Cross-check and report the candidate physical MFB network."""
     verify_physical_filter_synthesis()
     print_physical_filter_synthesis()
+
+
+@app.command("synthesize-mfb")
+def synthesize_mfb_command() -> None:
+    """Audit inventory and report the deterministic stocked MFB network."""
+    _, values = schematic_data()
+    verify_inventory_synthesis(values)
+    print_inventory_synthesis(values)
 
 
 @app.command("compare-physical-frontier")
