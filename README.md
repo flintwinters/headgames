@@ -60,7 +60,7 @@ differential alpha at 10 Hz.
 | Active electrodes | Mains falls 0.686→0.004 V, but motion reaches 1.000 V and `ENV` changes 2.8% | Fail; buffers solve cable imbalance, not motion |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576 per section; 565% passive and 1,046% active | Non-gating synthesis target only |
 | Ideal coefficient perturbations | Independent ±2% center and ±5% Q; ≥502% passive and ≥908% active | Non-gating target only |
-| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded near-nominal builds: ≥538.5% physical-detector `ENV` change; 1.073 V minimum node margin; 1.381 mA peak detector current | **Pass in Python tier** |
+| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement: ≥538.5% `ENV` change; 1.073 V minimum node margin; 1.381 mA peak current | **Pass in Python tier; not a yield estimate** |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002° | **Pass for declared nominal scope** |
 | Comprehensive TI PSpice model | TI Rev. C LMx58/LM2904 model remains incompatible with ngspice 44.2 `IF()`/switch syntax | Retained for provenance; outside the compatibility-model gate |
 
@@ -78,7 +78,9 @@ package. Its Python model exposes internal nodes and branch currents, applies
 finite LM324 A0/GBW and nominal bias/offset headroom, and steps a finite-GBW,
 slew- and rail-limited LM358 detector with explicit 1N4148 forward current,
 leakage, capacitance, hold R/C, and recovery state. The operating band is
-8.8–9.2 V with ±0.25% resistor and ±1% capacitor movement. Acquisition DC error
+8.8–9.2 V with independent ±1% resistor and ±5% capacitor movement, matching
+ordinary 1%-resistor/5%-capacitor assembled-part tolerances rather than an
+unusually tight hand-selected build. Acquisition DC error
 uses typical 5 nA input-offset current through the matched 10 MΩ paths and 2 mV
 offset at unity DC noise gain; common input bias current is not incorrectly
 treated as wholly unmatched.

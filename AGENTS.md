@@ -38,14 +38,15 @@ evidence is:
 | Active electrodes | Mains improves 0.686→0.004 V, but differential motion remains; `ENV` changes 2.8% |
 | Ideal two-biquad target | 9.798 Hz center, Q 1.576/section; ideal `ENV` changes 565% passive and 1,046% active; non-gating |
 | Ideal coefficient perturbations | ±2% center, ±5% Q remain ≥502% passive and ≥908% active; non-gating |
-| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded near-nominal builds retain ≥538.5% physical-detector `ENV` change, 1.073 V minimum node margin, and 1.381 mA peak current; pass in Python tier |
+| Active-electrode physical MFB Python tier | Nominal + 2,000 seeded builds with independent ±1% R/±5% C movement retain ≥538.5% `ENV` change, 1.073 V minimum node margin, and 1.381 mA peak current; pass, but not a yield estimate |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
 | Comprehensive TI PSpice model | Retained unchanged for provenance; ngspice 44.2 still rejects its `IF()`/switch syntax |
 
 Thus active electrodes plus sharper selectivity are the current testing
 frontier, and the declared nominal simulation gate passes. The
-proposed two-stage MFB network has strong modeled selectivity and retains
-positive headroom across the tight nominal operating band. Acquisition DC error
+proposed two-stage MFB network has strong modeled selectivity. Its build
+frontier uses ordinary ±1% resistor and ±5% capacitor tolerances while keeping
+supply and environmental conditions nominal. Acquisition DC error
 uses typical input-offset current through the matched 10 MΩ paths and unity DC
 noise gain because the 474 kΩ input arms are AC-coupled. The model now includes
 active-electrode input/cable behavior, finite acquisition loop gain, and a stateful

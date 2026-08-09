@@ -64,8 +64,10 @@ LM358_DETECTOR = AmplifierLimits(
 LM324_TYPICAL_INPUT_OFFSET_CURRENT_A = 5e-9
 FRONTIER_NOMINAL_SUPPLY_V = 9.0
 FRONTIER_SUPPLY_BAND_V = 0.2
-FRONTIER_RESISTOR_BAND = 0.0025
-FRONTIER_CAPACITOR_BAND = 0.01
+# Model the tolerance printed on readily available assembled parts. These are
+# build-to-build component limits, not environmental or abuse excursions.
+FRONTIER_RESISTOR_BAND = 0.01
+FRONTIER_CAPACITOR_BAND = 0.05
 FRONTIER_SAMPLES = 2_000
 DETECTOR_DIODE = DiodeModel()
 
@@ -705,6 +707,10 @@ def verify_physical_filter_synthesis() -> None:
             "physical solver did not expose source/load current")
     require(sum(1 for _ in component_corner_cases()) == 1_024,
             "physical filter must enumerate exactly 1,024 independent endpoints")
+    require(FRONTIER_RESISTOR_BAND == 0.01,
+            "physical frontier must cover the specified 1% resistor tolerance")
+    require(FRONTIER_CAPACITOR_BAND == 0.05,
+            "physical frontier must cover the specified 5% capacitor tolerance")
     left = bounded_stage_sample(random.Random(0x48454144), 0.01, 0.05)
     right = bounded_stage_sample(random.Random(0x48454144), 0.01, 0.05)
     require(left == right, "bounded Monte Carlo seed is not reproducible")
