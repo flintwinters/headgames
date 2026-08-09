@@ -1,1 +1,6 @@
 /build/
+/.history/
+/__pycache__/
+/headgames-backups/
+/*.kicad_prl
+/~*.lck
