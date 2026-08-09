@@ -7,7 +7,7 @@ supplied by ``manage.py`` after extraction from the native KiCad schematic.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import cmath
 import math
 
@@ -57,6 +57,19 @@ class EnvelopeResult:
     minimum_v: float
     mean_v: float
     maximum_v: float
+
+
+@dataclass(frozen=True)
+class ActiveElectrodeChannel:
+    """Candidate unity-buffer and cable parameters for one electrode."""
+
+    electrode_resistance: float
+    input_capacitance: float
+    gain_bandwidth_hz: float
+    output_resistance: float
+    cable_capacitance: float
+    input_bias_current: float
+    white_voltage_noise: float
 
 
 def parallel(left: complex, right: complex) -> complex:
@@ -109,8 +122,8 @@ def simulate_electrode_inputs(
     frequency_hz: float,
     meas_peak_v: complex,
     ref_peak_v: complex,
-    meas_electrode_resistance: float,
-    ref_electrode_resistance: float,
+    meas_electrode_resistance: complex,
+    ref_electrode_resistance: complex,
 ) -> complex:
     """Solve ALPHA for arbitrary electrode phasors and source imbalance.
 
@@ -147,6 +160,120 @@ def simulate_electrode_inputs(
         capacitor_impedance(parts.alpha_feedback_capacitance, frequency_hz),
     )
     return diff_out * (-alpha_feedback / alpha_input)
+
+
+def active_electrode_thevenin(
+    channel: ActiveElectrodeChannel,
+    safety_resistance: float,
+    frequency_hz: float,
+    electrode_peak_v: complex,
+) -> tuple[complex, complex]:
+    """Return the buffered cable end as a Thevenin source and impedance.
+
+    The safety resistance remains physically electrode-side of the buffer.  Its
+    interaction with buffer input capacitance is included.  The output model
+    includes a one-pole follower response and cable capacitance driven through
+    finite output resistance.
+    """
+    angular_frequency = 2 * math.pi * frequency_hz
+    input_pole = 1 / (
+        1
+        + 1j
+        * angular_frequency
+        * (channel.electrode_resistance + safety_resistance)
+        * channel.input_capacitance
+    )
+    follower_pole = 1 / (1 + 1j * frequency_hz / channel.gain_bandwidth_hz)
+    cable_factor = 1 / (
+        1
+        + 1j
+        * angular_frequency
+        * channel.output_resistance
+        * channel.cable_capacitance
+    )
+    return (
+        electrode_peak_v * input_pole * follower_pole * cable_factor,
+        channel.output_resistance * cable_factor,
+    )
+
+
+def simulate_active_electrode_inputs(
+    parts: EegPathComponents,
+    frequency_hz: float,
+    meas_peak_v: complex,
+    ref_peak_v: complex,
+    meas_channel: ActiveElectrodeChannel,
+    ref_channel: ActiveElectrodeChannel,
+) -> complex:
+    """Solve ALPHA when unity buffers drive the central acquisition network."""
+    meas_source, meas_impedance = active_electrode_thevenin(
+        meas_channel,
+        parts.safety_resistance,
+        frequency_hz,
+        meas_peak_v,
+    )
+    ref_source, ref_impedance = active_electrode_thevenin(
+        ref_channel,
+        parts.safety_resistance,
+        frequency_hz,
+        ref_peak_v,
+    )
+    central_parts = replace(parts, electrode_resistance=0.0, safety_resistance=0.0)
+    return simulate_electrode_inputs(
+        central_parts,
+        frequency_hz,
+        meas_source,
+        ref_source,
+        meas_impedance,
+        ref_impedance,
+    )
+
+
+def active_electrode_output_noise_rms(
+    parts: EegPathComponents,
+    meas_channel: ActiveElectrodeChannel,
+    ref_channel: ActiveElectrodeChannel,
+    start_hz: float = 0.5,
+    stop_hz: float = 100.0,
+    points: int = 2_001,
+    temperature_k: float = 300.0,
+) -> float:
+    """Integrate declared white buffer and source-resistance noise at ALPHA.
+
+    The two channels are treated as uncorrelated. This deliberately excludes
+    buffer 1/f noise, current noise, central-amplifier noise, and interference.
+    """
+    boltzmann = 1.380649e-23
+    meas_density_squared = meas_channel.white_voltage_noise**2 + (
+        4
+        * boltzmann
+        * temperature_k
+        * (meas_channel.electrode_resistance + parts.safety_resistance)
+    )
+    ref_density_squared = ref_channel.white_voltage_noise**2 + (
+        4
+        * boltzmann
+        * temperature_k
+        * (ref_channel.electrode_resistance + parts.safety_resistance)
+    )
+    differential_density_squared = meas_density_squared + ref_density_squared
+    spacing = (stop_hz - start_hz) / (points - 1)
+    output_psd: list[float] = []
+    for index in range(points):
+        frequency = start_hz + index * spacing
+        gain = simulate_active_electrode_inputs(
+            parts,
+            frequency,
+            0.5,
+            -0.5,
+            meas_channel,
+            ref_channel,
+        )
+        output_psd.append(abs(gain) ** 2 * differential_density_squared)
+    variance = spacing * (
+        0.5 * output_psd[0] + sum(output_psd[1:-1]) + 0.5 * output_psd[-1]
+    )
+    return math.sqrt(variance)
 
 
 def simulate_peak_detector(

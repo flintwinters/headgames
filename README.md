@@ -30,6 +30,7 @@ Run the frequency-domain circuit simulation with:
 ```sh
 python3 manage.py simulate-eeg
 python3 manage.py simulate-artifacts
+python3 manage.py simulate-active-electrodes
 ```
 
 The simulator extracts every circuit component value from the KiCad schematic
@@ -61,6 +62,28 @@ added. Nominal simulation fails: artifacts alone produce 0.919 V mean above
 VREF and adding alpha raises that only to 0.954 V, a 3.8% change. These fixture
 amplitudes are declared stress assumptions, not universal physiological bounds.
 Change them deliberately as physical measurements become available.
+
+The active-electrode command compares the passive cable against a candidate
+unity buffer located after both series safety resistors at each electrode. The
+declared generic buffer has 5 pF input capacitance, 1 MHz gain-bandwidth,
+100 ohm output resistance, 10 pA input bias, and 25 nV/rtHz white voltage noise;
+MEAS and REF cables are deliberately unequal at 150 pF and 250 pF. This is an
+architectural sensitivity model, not a selected part or a parallel schematic.
+
+The candidate reduces the 60 Hz common-mode contribution from 0.686 V to
+0.004 V peak at `ALPHA`, despite 20 kΩ/100 kΩ electrode mismatch. It does not
+reject differential electrode motion: the 2 Hz contribution increases from
+0.837 V to 1.000 V as loading is removed. Artifacts-only mean `ENV` is 0.586 V
+and adding 50 uV alpha raises it only to 0.603 V, a 2.8% change that still fails
+the 25% target. Declared buffer plus electrode/safety-resistor white noise
+integrates to about 1.33 mV RMS at `ALPHA` over 0.5-100 Hz; 1/f noise, current
+noise, central LM324 noise, and interference are excluded.
+
+Any physical active-electrode experiment must relocate both independent series
+safety resistors to the electrode-side module, ahead of its buffer. Leaving
+them at the central board would put powered circuitry between the electrode and
+the protection. The complete worn buffer supply and every attached conductor
+remain subject to the isolated-battery-only rule.
 
 ## Matched acquisition components
 

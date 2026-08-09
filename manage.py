@@ -13,11 +13,14 @@ from rich.console import Console
 from rich.table import Table
 
 from circuit_sim import (
+    ActiveElectrodeChannel,
     EegPathComponents,
     SignalTone,
+    active_electrode_output_noise_rms,
     logarithmic_sweep,
     magnitude_db,
     simulate_ac,
+    simulate_active_electrode_inputs,
     simulate_electrode_inputs,
     simulate_peak_detector,
 )
@@ -281,11 +284,8 @@ def print_eeg_simulation(values: dict[str, str]) -> None:
     )
 
 
-def artifact_fixture_outputs(
-    values: dict[str, str], include_alpha: bool
-) -> tuple[tuple[float, complex], ...]:
-    """Solve the explicit simultaneous artifact fixture at the ALPHA node."""
-    model = eeg_path_model(values)
+def artifact_fixture_tones(include_alpha: bool) -> tuple[SignalTone, ...]:
+    """Return the authoritative simultaneous project-survival stimulus."""
     # Peak amplitudes are deliberately explicit. Differential signals are
     # split symmetrically between MEAS and REF; mains is common to both.
     tones = [
@@ -295,6 +295,14 @@ def artifact_fixture_outputs(
     ]
     if include_alpha:
         tones.append(SignalTone(10.0, 25e-6, -25e-6))  # 50 uV differential
+    return tuple(tones)
+
+
+def artifact_fixture_outputs(
+    values: dict[str, str], include_alpha: bool
+) -> tuple[tuple[float, complex], ...]:
+    """Solve the explicit simultaneous artifact fixture at the ALPHA node."""
+    model = eeg_path_model(values)
     return tuple(
         (
             tone.frequency_hz,
@@ -307,7 +315,53 @@ def artifact_fixture_outputs(
                 ref_electrode_resistance=100_000.0,
             ),
         )
-        for tone in tones
+        for tone in artifact_fixture_tones(include_alpha)
+    )
+
+
+def active_electrode_channels(
+) -> tuple[ActiveElectrodeChannel, ActiveElectrodeChannel]:
+    """Return the declared candidate buffer and deliberately unequal cables."""
+    shared = {
+        "input_capacitance": 5e-12,
+        "gain_bandwidth_hz": 1_000_000.0,
+        "output_resistance": 100.0,
+        "input_bias_current": 10e-12,
+        "white_voltage_noise": 25e-9,
+    }
+    return (
+        ActiveElectrodeChannel(
+            electrode_resistance=20_000.0,
+            cable_capacitance=150e-12,
+            **shared,
+        ),
+        ActiveElectrodeChannel(
+            electrode_resistance=100_000.0,
+            cable_capacitance=250e-12,
+            **shared,
+        ),
+    )
+
+
+def active_artifact_fixture_outputs(
+    values: dict[str, str], include_alpha: bool
+) -> tuple[tuple[float, complex], ...]:
+    """Solve the survival fixture through candidate electrode-site buffers."""
+    model = eeg_path_model(values)
+    meas_channel, ref_channel = active_electrode_channels()
+    return tuple(
+        (
+            tone.frequency_hz,
+            simulate_active_electrode_inputs(
+                model,
+                tone.frequency_hz,
+                tone.meas_peak_v,
+                tone.ref_peak_v,
+                meas_channel,
+                ref_channel,
+            ),
+        )
+        for tone in artifact_fixture_tones(include_alpha)
     )
 
 
@@ -381,6 +435,117 @@ def print_artifact_simulation(values: dict[str, str]) -> None:
     console.print(
         f"[{color}]{verdict}[/{color}]: adding alpha changes mean ENV by "
         f"{relative_change:.1%}; the provisional distinguishability criterion is 25%."
+    )
+
+
+def assert_active_electrode_simulation(values: dict[str, str]) -> None:
+    """Regression-check the candidate active electrode against the same fixture."""
+    passive = artifact_fixture_outputs(values, include_alpha=True)
+    active = active_artifact_fixture_outputs(values, include_alpha=True)
+    assert len(passive) == len(active) == 4
+    passive_mains = abs(passive[2][1])
+    active_mains = abs(active[2][1])
+    assert active_mains < passive_mains / 100, (
+        f"active electrode did not reject imbalance-converted mains: {active_mains:.6f} V"
+    )
+
+    model = eeg_path_model(values)
+    channel, _ = active_electrode_channels()
+    balanced_common_mode = simulate_active_electrode_inputs(
+        model, 60.0, 0.1, 0.1, channel, channel
+    )
+    assert abs(balanced_common_mode) < 1e-12
+
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    artifacts = simulate_peak_detector(
+        active_artifact_fixture_outputs(values, include_alpha=False), release
+    )
+    with_alpha = simulate_peak_detector(active, release)
+    relative_change = (with_alpha.mean_v - artifacts.mean_v) / artifacts.mean_v
+    # Active buffering is expected to remove cable/common-mode conversion, but
+    # it cannot remove differential electrode motion. Preserve that distinction.
+    assert relative_change < 0.25
+    white_noise_rms = active_electrode_output_noise_rms(
+        model, *active_electrode_channels()
+    )
+    assert white_noise_rms < abs(active[3][1]) / 10
+
+
+def print_active_electrode_simulation(values: dict[str, str]) -> None:
+    """Compare the passive cable and candidate active-electrode architecture."""
+    release = resistance(values["R18"]) * capacitance(values["C17"])
+    passive_outputs = artifact_fixture_outputs(values, include_alpha=True)
+    active_outputs = active_artifact_fixture_outputs(values, include_alpha=True)
+    active_artifacts = simulate_peak_detector(
+        active_artifact_fixture_outputs(values, include_alpha=False), release
+    )
+    active_with_alpha = simulate_peak_detector(active_outputs, release)
+    relative_change = (
+        active_with_alpha.mean_v - active_artifacts.mean_v
+    ) / active_artifacts.mean_v
+
+    table = Table(title="Passive cable versus candidate active electrodes")
+    table.add_column("Fixture")
+    table.add_column("Passive ALPHA peak", justify="right")
+    table.add_column("Active ALPHA peak", justify="right")
+    table.add_column("Change", justify="right")
+    labels = ("2 Hz motion", "30 Hz muscle-like", "60 Hz common mode", "10 Hz alpha")
+    for label, (_, passive), (_, active) in zip(
+        labels, passive_outputs, active_outputs, strict=True
+    ):
+        change = abs(active) / abs(passive) if passive else 0.0
+        table.add_row(label, f"{abs(passive):.3f} V", f"{abs(active):.3f} V", f"{change:.3f}x")
+    console.print(table)
+
+    meas_channel, ref_channel = active_electrode_channels()
+    bias_error = meas_channel.input_bias_current * abs(
+        ref_channel.electrode_resistance - meas_channel.electrode_resistance
+    )
+    white_noise_rms = active_electrode_output_noise_rms(
+        eeg_path_model(values), meas_channel, ref_channel
+    )
+    assumptions = Table(title="Declared active-electrode assumptions")
+    assumptions.add_column("Parameter")
+    assumptions.add_column("MEAS", justify="right")
+    assumptions.add_column("REF", justify="right")
+    assumptions.add_row(
+        "Electrode source resistance",
+        f"{meas_channel.electrode_resistance / 1e3:.0f} kohm",
+        f"{ref_channel.electrode_resistance / 1e3:.0f} kohm",
+    )
+    assumptions.add_row(
+        "Cable capacitance",
+        f"{meas_channel.cable_capacitance * 1e12:.0f} pF",
+        f"{ref_channel.cable_capacitance * 1e12:.0f} pF",
+    )
+    assumptions.add_row("Buffer output resistance", "100 ohm", "100 ohm")
+    assumptions.add_row("Buffer GBW", "1 MHz", "1 MHz")
+    assumptions.add_row("Input capacitance", "5 pF", "5 pF")
+    assumptions.add_row("Input bias current", "10 pA", "10 pA")
+    assumptions.add_row("White voltage noise", "25 nV/rtHz", "25 nV/rtHz")
+    console.print(assumptions)
+
+    verdict = "PASS" if relative_change >= 0.25 else "FAIL"
+    color = "green" if verdict == "PASS" else "red"
+    console.print(
+        f"Bias-current error from the declared 80 kohm electrode mismatch: "
+        f"{bias_error * 1e6:.2f} uV DC (subsequently AC-coupled)."
+    )
+    console.print(
+        f"Integrated 0.5-100 Hz ALPHA noise from declared white buffer noise and "
+        f"electrode/safety-resistor Johnson noise: {white_noise_rms * 1e3:.2f} mV RMS."
+    )
+    console.print(
+        f"Active artifacts-only ENV mean: {active_artifacts.mean_v:.3f} V; with "
+        f"alpha: {active_with_alpha.mean_v:.3f} V."
+    )
+    console.print(
+        f"[{color}]{verdict}[/{color}]: active electrodes change mean ENV by "
+        f"{relative_change:.1%} when alpha is added; target is 25%."
+    )
+    console.print(
+        "[yellow]Interpretation:[/yellow] buffering isolates the cable/common-mode "
+        "mismatch mechanism, but cannot reject differential electrode motion."
     )
 
 
@@ -496,6 +661,7 @@ def test() -> None:
     assert_eeg_signal_path(nets, values)
     assert_eeg_simulation(values)
     assert_artifact_simulation(values)
+    assert_active_electrode_simulation(values)
     assert_precision_detector(nets, values)
     assert_isolated_battery_input(nets, values)
     assert_redundant_electrode_limiting(nets, values)
@@ -517,6 +683,14 @@ def simulate_artifacts() -> None:
     _, values = schematic_data()
     assert_artifact_simulation(values)
     print_artifact_simulation(values)
+
+
+@app.command("simulate-active-electrodes")
+def simulate_active_electrodes() -> None:
+    """Compare passive cables with candidate unity-buffer active electrodes."""
+    _, values = schematic_data()
+    assert_active_electrode_simulation(values)
+    print_active_electrode_simulation(values)
 
 
 if __name__ == "__main__":

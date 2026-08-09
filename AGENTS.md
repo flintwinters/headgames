@@ -51,6 +51,17 @@ The architecture therefore has an unresolved artifact-rejection problem;
 validate the fixture amplitudes and response with an isolated physical phantom
 before investing in downstream refinement.
 
+`manage.py simulate-active-electrodes` evaluates unity buffers after both
+electrode-side safety resistors without changing the authoritative schematic.
+With declared 5 pF input, 100 Ω output, 1 MHz GBW, 10 pA bias, 25 nV/√Hz white
+noise, and unequal 150/250 pF cables, buffering reduces the modeled 60 Hz
+common-mode contribution from 0.686 V to 0.004 V at `ALPHA`. It cannot reject
+the differential 2 Hz artifact, which reaches 1.000 V, so alpha changes mean
+`ENV` only 2.8% and still fails the 25% target. Active electrodes solve a cable
+and source-impedance problem, not the project-survival motion/selectivity
+problem. A physical version must place both independent safety resistors ahead
+of each electrode-site buffer and keep its entire worn supply isolated.
+
 Acquisition impedance ratios are assembly invariants. Pair-match `R12/R22`
 (10 MΩ), `C11/C15` (nominally 1.5 nF), `C12/C14` (100 nF), and `R15/R21`
 (the reserved measured 474 kΩ pair). Inventory lacks 1.5 nF capacitors; the
@@ -74,6 +85,8 @@ medical device.
   feedback networks in the authoritative schematic after inventory confirmation.
 - Reproduce the artifact fixture with an isolated physical EEG phantom and
   determine whether alpha remains distinguishable under electrode imbalance.
+- Model the smallest sharper-filter candidate against both passive and active
+  electrode fixtures before selecting or wiring an electrode buffer.
 - Bench-validate power, VREF, carrier/audio, differential response, filtering,
   and envelope behavior with no person connected.
 - Validate isolated-supply physiological pickup: artifacts first, then repeated
