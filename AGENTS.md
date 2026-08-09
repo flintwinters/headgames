@@ -44,7 +44,7 @@ evidence is:
 | Wet/dry electrode frontier | Wet Randles interface gates; dry is informational. Both include explicit interface impedance and the 100 Ω/150–250 pF cable-stability contract |
 | Inventory-only physical Python tier | Wet stress moves every resistor leaf and unmarked capacitor independently at its declared or conservative ±5% R/±10% C bound; the required full gate is not yet accepted |
 | Nominal ngspice compatibility model | 43.86 mV acquisition DC error; Python/SPICE MFB agreement within 0.0000 dB and 0.0002°; pass for declared nominal scope |
-| Comprehensive TI PSpice model | Original remains hash-locked. Its deterministic ngspice translation parses, but the first unity-follower DC characterization converges outside the rails; acceptance remains closed |
+| Comprehensive TI PSpice model | The unchanged hash-locked source passes DC and AC through ngspice's native PSpice frontend. The 100 Ω/250 pF cable case has 21.6% overshoot, above the 20% gate; acceptance remains closed |
 
 Thus active electrodes plus sharper selectivity are the current testing
 frontier, but hardware acceptance is closed because they exist only in the
@@ -70,8 +70,9 @@ clear future boundary for buffers or an instrumentation amplifier.
 
 ## Current big tasks
 
-- Reconcile the translated TI model's PSpice/ngspice semantics; its unity
-  follower must stay inside the rails before broader characterization can count.
+- Resolve the TI-model cable-stability failure or revise the physical isolation
+  network from inventory, then extend characterization to noise, slew, swing,
+  bias current, acquisition, VREF, MFB, and detector behavior.
 - Reconcile the physical model and native KiCad circuit block by block: select
   and model only inventory-stocked parts, implement the validated MFB
   sections in KiCad, and either model carrier/audio or explicitly end both

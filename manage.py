@@ -53,7 +53,6 @@ from inventory import (
     read_inventory,
     synthesize_mfb,
 )
-from ti_model_translation import TRANSLATOR_REVISION, translate_ti_lmx58
 
 
 app = typer.Typer(no_args_is_help=True)
@@ -62,7 +61,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 SCHEMATIC = PROJECT_ROOT / "headgames.kicad_sch"
 BOM = PROJECT_ROOT / "headgames_bom.csv"
 TI_MODEL = PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib"
-TI_NGSPICE_MODEL = PROJECT_ROOT / "models" / "ngspice" / "lmx58_lm2904.lib"
 
 LM324_ACQUISITION = AmplifierLimits(
     "LM324N acquisition", 100_000.0, 1_000_000.0, 2e-3, 45e-9, 0.5e6,
@@ -1081,10 +1079,6 @@ def require_spice_models() -> None:
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         require(actual == digest,
                 f"SPICE model hash is not locked or mismatched: {path.name}")
-    expected_translation = translate_ti_lmx58(TI_MODEL.read_text(encoding="utf-8"))
-    require(TI_NGSPICE_MODEL.is_file(), "translated TI ngspice model is missing")
-    require(TI_NGSPICE_MODEL.read_text(encoding="utf-8") == expected_translation,
-            f"translated TI model is stale; regenerate with {TRANSLATOR_REVISION}")
 
 
 def generate_filter_spice_deck() -> Path:
@@ -1167,13 +1161,13 @@ XU plus minus vcc 0 out HG_LMX24_LMX58_NOMINAL
     return dc_error
 
 
-def spice_ti_translation_smoke() -> tuple[float, float]:
-    """Instantiate the translated TI model and check its nominal DC contract."""
+def spice_ti_dc_characterization() -> tuple[float, float]:
+    """Instantiate TI's model through ngspice's PSpice compatibility frontend."""
     require_spice_models()
     output_dir = PROJECT_ROOT / "build" / "spice"
     output_dir.mkdir(parents=True, exist_ok=True)
-    deck = output_dir / "ti_translation_dc.cir"
-    deck.write_text(f"""Headgames translated TI LM358 DC characterization
+    deck = output_dir / "ti_model_dc.cir"
+    deck.write_text(f"""Headgames TI LM358 DC characterization
 .include {TI_MODEL.resolve()}
 VCC vcc 0 9
 VIN plus 0 4.5
@@ -1188,7 +1182,7 @@ RL out 0 10k
                                check=False, capture_output=True, text=True,
                                encoding="utf-8", errors="replace")
     require(completed.returncode == 0,
-            f"translated TI model rejected by ngspice: {(completed.stderr or completed.stdout)[-800:]}")
+            f"TI model rejected by ngspice PSpice compatibility: {(completed.stderr or completed.stdout)[-800:]}")
     rows = []
     for line in completed.stdout.splitlines():
         fields = line.split()
@@ -1197,19 +1191,200 @@ RL out 0 10k
                 rows.append(tuple(float(value) for value in fields[1:]))
             except ValueError:
                 continue
-    require(len(rows) == 1, "translated TI DC characterization produced no operating point")
+    require(len(rows) == 1, "TI DC characterization produced no operating point")
     input_v, output_v, supply_a = rows[0]
     require(abs(output_v - input_v) <= 20e-3,
-            f"translated TI follower DC error is {output_v-input_v:.6g} V")
-    require(0.1e-3 <= abs(supply_a) <= 2e-3,
-            f"translated TI quiescent supply current is {supply_a:.6g} A")
-    return output_v - input_v, abs(supply_a)
+            f"TI follower DC error is {output_v-input_v:.6g} V")
+    quiescent_a = abs(supply_a) - output_v / 10_000.0
+    require(0.1e-3 <= quiescent_a <= 1e-3,
+            f"TI quiescent supply current is {quiescent_a:.6g} A")
+    return output_v - input_v, quiescent_a
+
+
+def _run_ti_spice(deck: Path) -> subprocess.CompletedProcess[str]:
+    completed = subprocess.run(
+        ["ngspice", "-D", "ngbehavior=ps", "-b", str(deck)], cwd=deck.parent,
+        check=False, capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    require(completed.returncode == 0,
+            f"TI PSpice compatibility run failed: {(completed.stderr or completed.stdout)[-800:]}")
+    return completed
+
+
+def _spice_table(stdout: str, columns: int) -> list[tuple[float, ...]]:
+    rows: list[tuple[float, ...]] = []
+    for line in stdout.splitlines():
+        fields = line.split()
+        if len(fields) == columns + 1 and fields[0].isdigit():
+            try:
+                rows.append(tuple(float(value) for value in fields[1:]))
+            except ValueError:
+                continue
+    return rows
+
+
+def spice_ti_ac_characterization() -> tuple[float, float, float]:
+    """Measure the native TI model's follower gain, phase, and bandwidth."""
+    require_spice_models()
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / "ti_follower_ac.cir"
+    deck.write_text(f"""Headgames TI LM358 AC characterization
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VIN plus 0 dc 4.5 ac 1
+XU plus out vcc 0 out LMX58_LM2904
+RL out 0 10k
+.ac dec 40 1 10meg
+.print ac vm(out) vp(out)
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 3)
+    require(rows, "TI AC characterization produced no frequency points")
+    low_frequency, low_gain, low_phase_rad = rows[0]
+    require(0.98 <= low_gain <= 1.02, f"TI follower LF gain is {low_gain:.6g}")
+    low_phase_deg = math.degrees(low_phase_rad)
+    require(abs(low_phase_deg) <= 2.0, f"TI follower LF phase is {low_phase_deg:.3f} degrees")
+    target = low_gain / math.sqrt(2)
+    bandwidth = min(rows, key=lambda row: abs(row[1] - target))[0]
+    require(0.5e6 <= bandwidth <= 2.0e6,
+            f"TI follower -3 dB bandwidth is {bandwidth:.6g} Hz")
+    return low_gain, low_phase_deg, bandwidth
+
+
+def spice_ti_bias_characterization() -> float:
+    """Measure input bias current from a source-resistor voltage drop."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / "ti_bias_dc.cir"
+    deck.write_text(f"""Headgames TI LM358 input-bias characterization
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VBIAS bias 0 4.5
+RSOURCE bias plus 1meg
+XU plus out vcc 0 out LMX58_LM2904
+RL out 0 10k
+.op
+.print op v(bias) v(plus)
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 2)
+    require(len(rows) == 1, "TI bias characterization produced no operating point")
+    bias_v, plus_v = rows[0]
+    current = abs(bias_v - plus_v) / 1e6
+    require(5e-9 <= current <= 100e-9, f"TI input bias current is {current:.6g} A")
+    return current
+
+
+def spice_ti_slew_characterization() -> float:
+    """Measure large-signal follower slew between 10% and 90% levels."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / "ti_slew_tran.cir"
+    deck.write_text(f"""Headgames TI LM358 slew characterization
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VIN plus 0 pulse(2 6 1m 10n 10n 4m 10m)
+XU plus out vcc 0 out LMX58_LM2904
+RL out 0 10k
+.tran 1u 4m
+.print tran v(out)
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 2)
+    post = [(time, voltage) for time, voltage in rows if time >= 1e-3]
+    require(post, "TI slew characterization produced no transient samples")
+    t10 = next((time for time, voltage in post if voltage >= 2.4), None)
+    t90 = next((time for time, voltage in post if voltage >= 5.6), None)
+    require(t10 is not None and t90 is not None and t90 > t10,
+            "TI slew characterization did not cross 10% and 90%")
+    slew = 3.2 / (t90 - t10)
+    require(0.1e6 <= slew <= 1.0e6, f"TI positive slew rate is {slew:.6g} V/s")
+    return slew
+
+
+def spice_ti_swing_characterization() -> tuple[float, float]:
+    """Check loaded follower tracking across its declared common-mode range."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / "ti_swing_dc.cir"
+    deck.write_text(f"""Headgames TI LM358 loaded output-swing characterization
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VIN plus 0 0.1
+XU plus out vcc 0 out LMX58_LM2904
+RL out 0 10k
+.dc VIN 0.1 7.0 0.1
+.print dc v(plus) v(out)
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 3)
+    require(rows, "TI swing characterization produced no sweep points")
+    _, low_in, low_out = rows[0]
+    _, high_in, high_out = rows[-1]
+    require(0 <= low_out <= high_out <= 9.0, "TI loaded output escaped its rails")
+    require(abs(low_out-low_in) <= 50e-3, f"TI low output tracking error is {low_out-low_in:.6g} V")
+    require(abs(high_out-high_in) <= 100e-3, f"TI high output tracking error is {high_out-high_in:.6g} V")
+    return low_out, high_out
+
+
+def spice_ti_noise_characterization() -> float:
+    """Integrate TI-model unity-follower output noise over 0.5–100 Hz."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / "ti_noise.cir"
+    deck.write_text(f"""Headgames TI LM358 noise characterization
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VIN plus 0 dc 4.5 ac 1
+XU plus out vcc 0 out LMX58_LM2904
+RL out 0 10k
+.noise v(out) VIN dec 40 0.5 100
+.print noise onoise_spectrum
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 2)
+    require(len(rows) >= 2, "TI noise characterization produced no spectrum")
+    variance = 0.0
+    for (left_f, left_n), (right_f, right_n) in zip(rows, rows[1:]):
+        variance += (right_f-left_f) * (left_n*left_n + right_n*right_n) / 2
+    noise = math.sqrt(max(0.0, variance))
+    require(0 < noise <= 100e-6, f"TI integrated 0.5-100 Hz noise is {noise:.6g} V RMS")
+    return noise
+
+
+def spice_ti_cable_transient(cable_pf: float = 250.0) -> tuple[float, float]:
+    """Measure step overshoot and 2% settling through the physical 100 ohm isolator."""
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    deck = output_dir / f"ti_cable_{int(cable_pf)}pf.cir"
+    deck.write_text(f"""Headgames TI LM358 isolated cable transient
+.include {TI_MODEL.resolve()}
+VCC vcc 0 9
+VIN plus 0 pulse(4.4 4.6 1m 1u 1u 4m 10m)
+XU plus raw vcc 0 raw LMX58_LM2904
+RISO raw cable 100
+CCABLE cable 0 {cable_pf:g}p
+RLOAD cable vref 474k
+VLOAD vref 0 4.5
+.tran 2u 3m
+.print tran v(cable)
+.end
+""", encoding="utf-8")
+    rows = _spice_table(_run_ti_spice(deck).stdout, 2)
+    require(rows, "TI cable transient produced no samples")
+    post = [(time, voltage) for time, voltage in rows if time >= 1e-3]
+    final_v = sum(voltage for _, voltage in post[-50:]) / min(50, len(post))
+    step = final_v - 4.4
+    require(step > 0.15, f"TI cable transient final step is only {step:.6g} V")
+    overshoot = max(0.0, (max(voltage for _, voltage in post) - final_v) / step)
+    band = abs(step) * 0.02
+    settling = post[-1][0] - 1e-3
+    for index, (time, voltage) in enumerate(post):
+        if all(abs(later - final_v) <= band for _, later in post[index:]):
+            settling = time - 1e-3
+            break
+    return overshoot, settling
 
 
 def spice_filter_ac_crosscheck() -> tuple[float, float, float]:
     """Return nominal-model DC error and worst Python/SPICE AC errors."""
     require_spice_models()
-    spice_ti_translation_smoke()
+    spice_ti_dc_characterization()
     dc_error = spice_nominal_model_dc_crosscheck()
     deck = generate_filter_spice_deck()
     completed = subprocess.run(["ngspice", "-b", str(deck)], cwd=deck.parent,
@@ -1586,21 +1761,26 @@ def synthesize_mfb_command() -> None:
     print_inventory_synthesis(values)
 
 
-@app.command("translate-ti-model")
-def translate_ti_model_command() -> None:
-    """Regenerate the narrow ngspice translation from the hash-locked TI source."""
-    TI_NGSPICE_MODEL.parent.mkdir(parents=True, exist_ok=True)
-    TI_NGSPICE_MODEL.write_text(
-        translate_ti_lmx58(TI_MODEL.read_text(encoding="utf-8")), encoding="utf-8"
-    )
-    console.print(f"Generated {TI_NGSPICE_MODEL.relative_to(PROJECT_ROOT)} using {TRANSLATOR_REVISION}.")
-
-
 @app.command("characterize-ti-model")
 def characterize_ti_model_command() -> None:
     """Run the first fail-closed translated-TI behavioral contract."""
-    error, current = spice_ti_translation_smoke()
-    console.print(f"Translated TI follower error: {error*1e3:.3f} mV; supply current: {current*1e3:.3f} mA.")
+    error, current = spice_ti_dc_characterization()
+    gain, phase, bandwidth = spice_ti_ac_characterization()
+    bias_current = spice_ti_bias_characterization()
+    slew = spice_ti_slew_characterization()
+    low_swing, high_swing = spice_ti_swing_characterization()
+    noise = spice_ti_noise_characterization()
+    overshoot_150, settling_150 = spice_ti_cable_transient(150.0)
+    overshoot_250, settling_250 = spice_ti_cable_transient(250.0)
+    console.print(f"TI follower error: {error*1e3:.3f} mV; quiescent current: {current*1e3:.3f} mA.")
+    console.print(f"TI follower LF gain/phase: {gain:.6f} / {phase:.3f}°; -3 dB bandwidth: {bandwidth/1e6:.3f} MHz.")
+    console.print(f"TI input bias: {bias_current*1e9:.2f} nA; positive slew: {slew/1e6:.3f} V/µs; loaded swing: {low_swing:.3f}–{high_swing:.3f} V.")
+    console.print(f"TI integrated 0.5–100 Hz follower noise: {noise*1e6:.3f} µV RMS.")
+    console.print(f"TI isolated-cable overshoot: {overshoot_150:.1%} at 150 pF, {overshoot_250:.1%} at 250 pF; settling: {settling_150*1e6:.1f}/{settling_250*1e6:.1f} µs.")
+    require(max(overshoot_150, overshoot_250) <= 0.20,
+            "TI cable overshoot exceeds 20%")
+    require(max(settling_150, settling_250) <= 1e-3,
+            "TI cable settling exceeds 1 ms")
 
 
 @app.command("compare-physical-frontier")
