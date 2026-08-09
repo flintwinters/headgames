@@ -766,7 +766,8 @@ def _alpha_redesign_case(arguments):
 def nominal_broadband_parts(feedback_ohm: float) -> BroadbandParts:
     """Materialize the proposed flat-gain and 60 Hz notch physical leaves."""
     return BroadbandParts(BROADBAND_GAIN_INPUT_OHM, feedback_ohm,
-                          390_000.0, 390_000.0, 6.8e-9, 6.8e-9,
+                          390_000.0, 390_000.0, 390_000.0, 390_000.0,
+                          6.8e-9, 6.8e-9, 6.8e-9, 6.8e-9,
                           20_000.0, 620_000.0)
 
 
@@ -790,7 +791,9 @@ def sampled_broadband_parts(feedback_ohm: float, rng: random.Random
         move(nominal.gain_input_ohm, 0.001),
         move(nominal.gain_feedback_ohm, 0.001),
         move(nominal.notch_r1_ohm, 0.001), move(nominal.notch_r2_ohm, 0.001),
+        move(nominal.notch_r3a_ohm, 0.001), move(nominal.notch_r3b_ohm, 0.001),
         move(nominal.notch_c1_f, 0.001), move(nominal.notch_c2_f, 0.001),
+        move(nominal.notch_c3a_f, 0.001), move(nominal.notch_c3b_f, 0.001),
         move(nominal.notch_q_set_ohm, 0.001),
         move(nominal.notch_q_feedback_ohm, 0.001),
     )

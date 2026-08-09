@@ -129,8 +129,12 @@ class BroadbandParts:
     gain_feedback_ohm: float
     notch_r1_ohm: float
     notch_r2_ohm: float
+    notch_r3a_ohm: float
+    notch_r3b_ohm: float
     notch_c1_f: float
     notch_c2_f: float
+    notch_c3a_f: float
+    notch_c3b_f: float
     notch_q_set_ohm: float
     notch_q_feedback_ohm: float
 
@@ -138,6 +142,59 @@ class BroadbandParts:
     def notch_q(self) -> float:
         """Active twin-T Q from its physical positive-feedback divider."""
         return (1+self.notch_q_feedback_ohm/self.notch_q_set_ohm)/4
+
+    @property
+    def notch_r3_ohm(self) -> float:
+        return 1/(1/self.notch_r3a_ohm+1/self.notch_r3b_ohm)
+
+    @property
+    def notch_c3_f(self) -> float:
+        return self.notch_c3a_f+self.notch_c3b_f
+
+
+def _poly_det3(matrix: tuple[tuple[np.ndarray, ...], ...]) -> np.ndarray:
+    """Return the determinant of a 3x3 polynomial matrix."""
+    positive = np.polyadd(
+        np.polymul(matrix[0][0], np.polymul(matrix[1][1], matrix[2][2])),
+        np.polyadd(
+            np.polymul(matrix[0][1], np.polymul(matrix[1][2], matrix[2][0])),
+            np.polymul(matrix[0][2], np.polymul(matrix[1][0], matrix[2][1])),
+        ),
+    )
+    negative = np.polyadd(
+        np.polymul(matrix[0][2], np.polymul(matrix[1][1], matrix[2][0])),
+        np.polyadd(
+            np.polymul(matrix[0][0], np.polymul(matrix[1][2], matrix[2][1])),
+            np.polymul(matrix[0][1], np.polymul(matrix[1][0], matrix[2][2])),
+        ),
+    )
+    return np.polysub(positive, negative)
+
+
+def twin_t_weighting(parts: BroadbandParts) -> tuple[np.ndarray, np.ndarray]:
+    """Solve the physical active twin-T network with every passive leaf."""
+    constant = lambda value: np.array([value])
+    capacitor = lambda value: np.array([value, 0.0])
+    g1, g2, g3 = (constant(1/value) for value in (
+        parts.notch_r1_ohm, parts.notch_r2_ohm, parts.notch_r3_ohm))
+    y1, y2, y3 = (capacitor(value) for value in (
+        parts.notch_c1_f, parts.notch_c2_f, parts.notch_c3_f))
+    feedback = (parts.notch_q_feedback_ohm /
+                (parts.notch_q_set_ohm+parts.notch_q_feedback_ohm))
+    matrix = (
+        (np.polyadd(np.polyadd(g1, g2), y3), np.array([0.0]),
+         np.polysub(np.negative(g2), feedback*y3)),
+        (np.array([0.0]), np.polyadd(np.polyadd(y1, y2), g3),
+         np.polysub(np.negative(y2), feedback*g3)),
+        (np.negative(g2), np.negative(y2), np.polyadd(g2, y2)),
+    )
+    rhs = (g1, y1, np.array([0.0]))
+    numerator_matrix = tuple(
+        tuple(rhs[row] if column == 2 else matrix[row][column]
+              for column in range(3))
+        for row in range(3)
+    )
+    return _poly_det3(numerator_matrix), _poly_det3(matrix)
 
 
 @dataclass(frozen=True)
@@ -168,21 +225,10 @@ class BroadbandBuildResult:
 
 
 def broadband_weighting(parts: BroadbandParts) -> tuple[np.ndarray, np.ndarray]:
-    """Return flat U2C gain followed by the proposed Q=8 active 60 Hz notch.
-
-    The notch is represented by its physical RC-derived center frequency and
-    separately declared active Q. This is a behavioral op-amp model, not
-    device-level evidence or a KiCad implementation.
-    """
-    center_hz = 1 / (2*math.pi*math.sqrt(
-        parts.notch_r1_ohm*parts.notch_r2_ohm*parts.notch_c1_f*parts.notch_c2_f
-    ))
-    omega = 2*math.pi*center_hz
+    """Return the selected flat U2C gain after the physical active twin-T."""
     gain = -parts.gain_feedback_ohm/parts.gain_input_ohm
-    return (
-        gain*np.array([1.0, 0.0, omega*omega]),
-        np.array([1.0, omega/parts.notch_q, omega*omega]),
-    )
+    numerator, denominator = twin_t_weighting(parts)
+    return gain*numerator, denominator
 
 
 def electrode_to_broadband(build: SonificationBuild, parts: BroadbandParts
