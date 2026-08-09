@@ -25,6 +25,8 @@ from circuit_sim import (
     EnvelopeResult,
     SignalTone,
     active_electrode_output_noise_rms,
+    electrode_profile,
+    follower_cable_stability,
     logarithmic_sweep,
     magnitude_db,
     simulate_ac,
@@ -470,11 +472,11 @@ def artifact_fixture_outputs(
 
 
 def frontier_artifact_fixture_outputs(
-    values: dict[str, str], include_alpha: bool
+    values: dict[str, str], include_alpha: bool, electrode: str = "wet"
 ) -> tuple[tuple[float, complex], ...]:
     """Solve active electrodes through the finite-A0/GBW LM324 acquisition."""
     model = eeg_path_model(values)
-    meas_channel, ref_channel = active_electrode_channels()
+    meas_channel, ref_channel = active_electrode_channels(electrode)
     return tuple(
         (
             tone.frequency_hz,
@@ -487,7 +489,7 @@ def frontier_artifact_fixture_outputs(
     )
 
 
-def active_electrode_channels(
+def active_electrode_channels(electrode: str | None = None
 ) -> tuple[ActiveElectrodeChannel, ActiveElectrodeChannel]:
     """Return the stocked LM358N dual buffer and unequal cable loads."""
     shared = {
@@ -498,18 +500,51 @@ def active_electrode_channels(
         "input_bias_current": 45e-9,
         "white_voltage_noise": 40e-9,
     }
+    profile = None if electrode is None else electrode_profile(electrode)
+    source = 20_000.0 if profile is None else abs(profile.impedance(10.0))
+    mismatch = 5.0 if electrode is None else (1.10 if electrode == "wet" else 1.22)
+    meas_interface = {} if profile is None else {
+        "electrode_series_resistance": profile.series_resistance_ohm,
+        "charge_transfer_resistance": profile.charge_transfer_resistance_ohm,
+        "interface_capacitance": profile.interface_capacitance_f,
+    }
+    ref_interface = {} if profile is None else {
+        "electrode_series_resistance": profile.series_resistance_ohm * mismatch,
+        "charge_transfer_resistance": profile.charge_transfer_resistance_ohm * mismatch,
+        "interface_capacitance": profile.interface_capacitance_f / mismatch,
+    }
     return (
         ActiveElectrodeChannel(
-            electrode_resistance=20_000.0,
+            electrode_resistance=source,
             cable_capacitance=150e-12,
+            **meas_interface,
             **shared,
         ),
         ActiveElectrodeChannel(
-            electrode_resistance=100_000.0,
+            electrode_resistance=source * mismatch,
             cable_capacitance=250e-12,
+            **ref_interface,
             **shared,
         ),
     )
+
+
+def verify_electrode_profiles() -> None:
+    """Check declared impedances and the isolated cable-driver stability gate."""
+    ranges = {"wet": (20_000.0, 26_000.0), "dry": (40_000.0, 52_000.0)}
+    for name, (low, high) in ranges.items():
+        profile = electrode_profile(name)
+        impedances = tuple(abs(profile.impedance(frequency)) for frequency in (1.0, 10.0, 100.0))
+        require(low <= impedances[1] <= high,
+                f"{name} electrode impedance at 10 Hz is {impedances[1]:.0f} ohm")
+        require(impedances[0] >= impedances[1] >= impedances[2],
+                f"{name} electrode impedance is not monotonic")
+    for cable_pf in (150.0, 250.0):
+        stability = follower_cable_stability(1_000_000.0, 100.0, cable_pf * 1e-12)
+        require(stability.phase_margin_deg >= 45.0,
+                f"LM358 cable phase margin is {stability.phase_margin_deg:.1f} degrees")
+        require(stability.overshoot_fraction <= 0.20,
+                f"LM358 cable overshoot is {stability.overshoot_fraction:.1%}")
 
 
 def active_artifact_fixture_outputs(
@@ -861,9 +896,10 @@ def _physical_filtered_outputs(
 def _stress_metrics(
     values: dict[str, str], first: MfbStageParts, second: MfbStageParts,
     opamp: OpAmpModel, supply_v: float, detector_release_s: float,
+    electrode: str,
 ) -> tuple[float, float, float]:
-    artifacts = frontier_artifact_fixture_outputs(values, False)
-    with_alpha = frontier_artifact_fixture_outputs(values, True)
+    artifacts = frontier_artifact_fixture_outputs(values, False, electrode)
+    with_alpha = frontier_artifact_fixture_outputs(values, True, electrode)
     filtered_artifacts = _physical_filtered_outputs(artifacts, first, second, opamp)
     filtered_alpha = _physical_filtered_outputs(with_alpha, first, second, opamp)
     artifact_env = simulate_ideal_peak_detector(filtered_artifacts, detector_release_s,
@@ -903,10 +939,12 @@ def _stress_metrics(
 
 def run_filter_stress(
     values: dict[str, str], tier: str, samples: int, seed: int,
+    electrode: str = "wet",
 ) -> FilterStressResult:
     """Run the active-electrode frontier in a tight nominal operating band."""
     require(tier == "build", "only the nominal operating frontier is supported")
     require(samples >= 0, "samples must be non-negative")
+    require(electrode in ("wet", "dry"), "electrode must be wet or dry")
     opamp = OpAmpModel()
     release = resistance(values["R18"]) * capacitance(values["C17"])
     minimum_change = math.inf
@@ -918,7 +956,9 @@ def run_filter_stress(
 
     def consume(label: str, first: MfbStageParts, second: MfbStageParts, supply: float) -> None:
         nonlocal minimum_change, minimum_margin, maximum_current, worst, first_failure, cases
-        change, margin, current = _stress_metrics(values, first, second, opamp, supply, release)
+        change, margin, current = _stress_metrics(
+            values, first, second, opamp, supply, release, electrode
+        )
         cases += 1
         if change < minimum_change or margin < minimum_margin:
             worst = label
@@ -950,13 +990,13 @@ def run_filter_stress(
         consume(f"near-nominal:{index:05d}", first, second, supply)
 
     noise = integrated_output_noise_rms(nominal, nominal, opamp)
-    alpha_peak = abs(frontier_artifact_fixture_outputs(values, True)[-1][1]) * abs(
+    alpha_peak = abs(frontier_artifact_fixture_outputs(values, True, electrode)[-1][1]) * abs(
         solve_cascade_ac(nominal, nominal, opamp, 10.0).transfer
     )
     recovery = recovery_bound_seconds(nominal, opamp, release)
     detector_artifacts = simulate_precision_peak_detector(
         _physical_filtered_outputs(
-            frontier_artifact_fixture_outputs(values, False), nominal, nominal, opamp
+            frontier_artifact_fixture_outputs(values, False, electrode), nominal, nominal, opamp
         ),
         resistance(values["R18"]), capacitance(values["C17"]), 9.0, 4.5,
         LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
@@ -964,7 +1004,7 @@ def run_filter_stress(
     )
     detector_alpha = simulate_precision_peak_detector(
         _physical_filtered_outputs(
-            frontier_artifact_fixture_outputs(values, True), nominal, nominal, opamp
+            frontier_artifact_fixture_outputs(values, True, electrode), nominal, nominal, opamp
         ),
         resistance(values["R18"]), capacitance(values["C17"]), 9.0, 4.5,
         LM358_DETECTOR, DETECTOR_DIODE, duration_seconds=3.0,
@@ -1421,6 +1461,7 @@ def test() -> None:
     assert_eeg_simulation(values)
     verify_artifact_baseline_regression(values)
     verify_active_electrode_baseline_regression(values)
+    verify_electrode_profiles()
     verify_physical_filter_synthesis()
     verify_inventory_synthesis(values)
     assert_precision_detector(nets, values)
@@ -1493,12 +1534,16 @@ def simulate_filter_stress(
     tier: str = typer.Option("build", help="nominal operating frontier"),
     samples: int = typer.Option(FRONTIER_SAMPLES, min=0),
     seed: int = typer.Option(0x48454144, min=0),
+    electrode: str = typer.Option("wet", help="wet gating or dry informational profile"),
 ) -> None:
     """Evaluate the physical candidate near nominal operating conditions."""
     nets, values = schematic_data()
     assert_eeg_signal_path(nets, values)
-    result = run_filter_stress(values, tier, samples, seed)
+    result = run_filter_stress(values, tier, samples, seed, electrode)
     print_filter_stress(result)
+    if electrode == "dry":
+        console.print("[yellow]Dry-electrode verdict: INFORMATIONAL ONLY.[/yellow]")
+        return
     if tier == "build":
         require(result.first_failure is None,
                 f"physical build-envelope failure: {result.first_failure}")

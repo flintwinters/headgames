@@ -71,6 +71,64 @@ class ActiveElectrodeChannel:
     cable_capacitance: float
     input_bias_current: float
     white_voltage_noise: float
+    electrode_series_resistance: float | None = None
+    charge_transfer_resistance: float | None = None
+    interface_capacitance: float | None = None
+
+
+@dataclass(frozen=True)
+class ElectrodeProfile:
+    """Randles-style electrode interface plus deterministic artifact terms."""
+
+    name: str
+    series_resistance_ohm: float
+    charge_transfer_resistance_ohm: float
+    interface_capacitance_f: float
+    half_cell_offset_v: float
+    drift_peak_v: float
+    motion_peak_v: float
+    excess_noise_v_rt_hz_at_1hz: float
+
+    def impedance(self, frequency_hz: float) -> complex:
+        charge_transfer = parallel(
+            complex(self.charge_transfer_resistance_ohm),
+            capacitor_impedance(self.interface_capacitance_f, frequency_hz),
+        )
+        return self.series_resistance_ohm + charge_transfer
+
+
+@dataclass(frozen=True)
+class BufferStability:
+    phase_margin_deg: float
+    overshoot_fraction: float
+    settling_seconds: float
+
+
+def electrode_profile(name: str) -> ElectrodeProfile:
+    """Return the declared wet gating or dry informational interface."""
+    profiles = {
+        "wet": ElectrodeProfile("wet", 5_000.0, 25_000.0, 0.50e-6,
+                                0.150, 0.5e-3, 1.0e-3, 80e-9),
+        "dry": ElectrodeProfile("dry", 11_000.0, 60_000.0, 0.40e-6,
+                                0.250, 1.0e-3, 2.0e-3, 160e-9),
+    }
+    try:
+        return profiles[name]
+    except KeyError as error:
+        raise ValueError(f"unknown electrode profile: {name}") from error
+
+
+def follower_cable_stability(
+    gain_bandwidth_hz: float, isolation_resistance_ohm: float,
+    cable_capacitance_f: float,
+) -> BufferStability:
+    """Conservative two-pole unity-follower cable-load estimate."""
+    load_pole_hz = 1 / (2 * math.pi * isolation_resistance_ohm * cable_capacitance_f)
+    phase_margin = 90.0 - math.degrees(math.atan(gain_bandwidth_hz / load_pole_hz))
+    damping = max(0.05, min(1.0, phase_margin / 90.0))
+    overshoot = math.exp(-math.pi * damping / math.sqrt(max(1e-12, 1-damping*damping))) if damping < 1 else 0.0
+    settling = 4 / (2 * math.pi * gain_bandwidth_hz * damping)
+    return BufferStability(phase_margin, overshoot, settling)
 
 
 @dataclass(frozen=True)
@@ -314,11 +372,19 @@ def active_electrode_thevenin(
     finite output resistance.
     """
     angular_frequency = 2 * math.pi * frequency_hz
+    electrode_impedance = complex(channel.electrode_resistance)
+    if (channel.electrode_series_resistance is not None
+            and channel.charge_transfer_resistance is not None
+            and channel.interface_capacitance is not None):
+        electrode_impedance = channel.electrode_series_resistance + parallel(
+            complex(channel.charge_transfer_resistance),
+            capacitor_impedance(channel.interface_capacitance, frequency_hz),
+        )
     input_pole = 1 / (
         1
         + 1j
         * angular_frequency
-        * (channel.electrode_resistance + safety_resistance)
+        * (electrode_impedance + safety_resistance)
         * channel.input_capacitance
     )
     follower_pole = 1 / (1 + 1j * frequency_hz / channel.gain_bandwidth_hz)
