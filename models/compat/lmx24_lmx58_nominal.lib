@@ -1,0 +1,30 @@
+* Headgames nominal LM324-N / LM358-N compatibility model for ngspice.
+*
+* Scope: 9 V, VREF-centered, low-frequency linear operation. Parameters are
+* nominal TI datasheet values rather than a translation of TI's PSpice model.
+* This deliberately does not model ESD, phase reversal, short circuits,
+* temperature extremes, or out-of-range overload behavior.
+*
+* Pins: IN+ IN- VCC VEE OUT
+.subckt HG_LMX24_LMX58_NOMINAL INP INM VCC VEE OUT
+
+* Nominal input impedance and bias balance: 45 nA mean, 5 nA mismatch.
+RDIFF INP INM 10MEG
+RCMP INP VEE 4G
+RCMM INM VEE 4G
+IBP INP VEE DC 42.5N
+IBM INM VEE DC 47.5N
+
+* Nominal 2 mV input offset followed by 100 dB open-loop gain.
+VOS INP INP_OS DC 2M
+EGAIN GAIN_RAW VEE INP_OS INM 100K
+
+* 10 Hz dominant pole gives approximately 1 MHz unity-gain bandwidth.
+RDOM GAIN_RAW DOM 100K
+CDOM DOM VEE 159.154943N
+
+* Light-load output resistance. Rail/current limits are checked separately by
+* the frontier because a hard behavioral clamp invalidates AC linearization.
+EOUT OUT_INT VEE DOM VEE 1
+ROUT OUT_INT OUT 50
+.ends HG_LMX24_LMX58_NOMINAL

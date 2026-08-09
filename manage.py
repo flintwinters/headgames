@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import math
 import hashlib
+import os
 import random
 import shutil
 import subprocess
@@ -88,7 +89,7 @@ def schematic_data() -> tuple[
     dict[str, set[tuple[str, str]]], dict[str, str]
 ]:
     """Return the native schematic's electrical nets and component values."""
-    netlist = PROJECT_ROOT / ".headgames-test-netlist.xml"
+    netlist = PROJECT_ROOT / f".headgames-test-netlist-{os.getpid()}.xml"
     try:
         subprocess.run(
             [
@@ -881,26 +882,29 @@ def run_filter_stress(
 
 
 def require_spice_models() -> None:
-    """Fail closed when ngspice or locked, authorized TI models are absent."""
+    """Fail closed when ngspice or either source-locked model is absent."""
     require(shutil.which("ngspice") is not None,
             "ngspice is required for circuit-level verification but was not found")
-    model_root = PROJECT_ROOT / "models" / "ti"
     expected = {
-        "lmx58_lm2904.lib": "467a3e573420d1f5a21fab57b76be0e13073e854f609a73459a191958e314726",
+        PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib":
+            "467a3e573420d1f5a21fab57b76be0e13073e854f609a73459a191958e314726",
+        PROJECT_ROOT / "models" / "compat" / "lmx24_lmx58_nominal.lib":
+            "8334c31c9a13f76d63232295e2d2ad73c5d0f99c17f30a5adc5ba68335ccb3d8",
     }
-    for filename, digest in expected.items():
-        path = model_root / filename
-        require(path.is_file(), f"required TI model is missing: {path.relative_to(PROJECT_ROOT)}")
+    for path, digest in expected.items():
+        require(path.is_file(), f"required SPICE model is missing: {path.relative_to(PROJECT_ROOT)}")
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         require(actual == digest,
-                f"TI model hash is not locked or mismatched: {filename}")
+                f"SPICE model hash is not locked or mismatched: {path.name}")
 
 
 def generate_filter_spice_deck() -> Path:
     """Generate the candidate-only cross-check deck under build/spice."""
     output_dir = PROJECT_ROOT / "build" / "spice"
     output_dir.mkdir(parents=True, exist_ok=True)
-    model = (PROJECT_ROOT / "models" / "ti" / "lmx58_lm2904.lib").resolve()
+    model = (
+        PROJECT_ROOT / "models" / "compat" / "lmx24_lmx58_nominal.lib"
+    ).resolve()
     deck = output_dir / "physical_filter_ac.cir"
     deck.write_text(f"""Headgames generated physical MFB AC cross-check
 .include {model}
@@ -912,13 +916,13 @@ R2A x1 vref 64.9k
 C3A x1 n1 100n
 C4A out1 x1 100n
 R5A out1 n1 510k
-XFA vref n1 vcc 0 out1 LMX58_LM2904
+XFA vref n1 vcc 0 out1 HG_LMX24_LMX58_NOMINAL
 R1B out1 x2 255k
 R2B x2 vref 64.9k
 C3B x2 n2 100n
 C4B out2 x2 100n
 R5B out2 n2 510k
-XFB vref n2 vcc 0 out2 LMX58_LM2904
+XFB vref n2 vcc 0 out2 HG_LMX24_LMX58_NOMINAL
 .ac dec 1000 0.5 100
 .print ac vm(out2) vp(out2)
 .end
@@ -926,9 +930,58 @@ XFB vref n2 vcc 0 out2 LMX58_LM2904
     return deck
 
 
-def spice_filter_ac_crosscheck() -> tuple[float, float]:
-    """Run and parse nominal TI-model AC data; return worst dB/phase errors."""
+def spice_nominal_model_dc_crosscheck() -> float:
+    """Verify offset-current cancellation in a matched 10 Mohm DC fixture."""
     require_spice_models()
+    output_dir = PROJECT_ROOT / "build" / "spice"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model = (
+        PROJECT_ROOT / "models" / "compat" / "lmx24_lmx58_nominal.lib"
+    ).resolve()
+    deck = output_dir / "nominal_model_dc.cir"
+    deck.write_text(f"""Headgames nominal op-amp DC contract
+.include {model}
+VCC vcc 0 9
+VREF vref 0 4.5
+RPLUS plus vref 10meg
+RFB out minus 10meg
+XU plus minus vcc 0 out HG_LMX24_LMX58_NOMINAL
+.op
+.print op v(plus) v(minus) v(out)
+.end
+""", encoding="utf-8")
+    completed = subprocess.run(
+        ["ngspice", "-b", str(deck)], cwd=deck.parent,
+        check=False, capture_output=True, text=True,
+    )
+    require(completed.returncode == 0,
+            f"ngspice DC contract failed: {completed.stderr[-500:]}")
+    rows = []
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) == 4 and fields[0].isdigit():
+            try:
+                rows.append(tuple(float(value) for value in fields[1:]))
+            except ValueError:
+                continue
+    require(len(rows) == 1, "ngspice DC contract produced no unique operating point")
+    plus, minus, output = rows[0]
+    require(abs(abs(plus - minus) - LM324_ACQUISITION.input_offset_v) <= 100e-6,
+            f"nominal model input offset is {plus-minus:.6g} V")
+    dc_error = output - 4.5
+    expected = (
+        LM324_ACQUISITION.input_offset_v
+        + LM324_TYPICAL_INPUT_OFFSET_CURRENT_A * 10_000_000.0
+    )
+    require(abs(abs(dc_error) - expected) <= 10e-3,
+            f"nominal model DC error {dc_error:.6g} V differs from {expected:.6g} V")
+    return dc_error
+
+
+def spice_filter_ac_crosscheck() -> tuple[float, float, float]:
+    """Return nominal-model DC error and worst Python/SPICE AC errors."""
+    require_spice_models()
+    dc_error = spice_nominal_model_dc_crosscheck()
     deck = generate_filter_spice_deck()
     completed = subprocess.run(["ngspice", "-b", str(deck)], cwd=deck.parent,
                                check=False, capture_output=True, text=True)
@@ -939,7 +992,12 @@ def spice_filter_ac_crosscheck() -> tuple[float, float]:
         fields = line.split()
         if len(fields) >= 4 and fields[0].isdigit():
             try:
-                points.append((float(fields[1]), float(fields[2]), float(fields[3])))
+                # ngspice 44 prints vp() in radians in batch tabular output.
+                points.append((
+                    float(fields[1]),
+                    float(fields[2]),
+                    math.degrees(float(fields[3])),
+                ))
             except ValueError:
                 continue
     require(points, "ngspice AC output contained no parseable points")
@@ -953,7 +1011,7 @@ def spice_filter_ac_crosscheck() -> tuple[float, float]:
         worst_phase = max(worst_phase, abs(phase_error))
     require(worst_db <= 0.1, f"Python/SPICE AC magnitude differs by {worst_db:.3f} dB")
     require(worst_phase <= 1.0, f"Python/SPICE AC phase differs by {worst_phase:.3f} degrees")
-    return worst_db, worst_phase
+    return dc_error, worst_db, worst_phase
 
 
 def verify_filter_stress(values: dict[str, str], samples: int = FRONTIER_SAMPLES,
@@ -1202,7 +1260,7 @@ def assert_redundant_electrode_limiting(
 
 def assert_erc_clean() -> None:
     """Require KiCad's complete electrical-rules check to pass."""
-    report = PROJECT_ROOT / ".headgames-test-erc.rpt"
+    report = PROJECT_ROOT / f".headgames-test-erc-{os.getpid()}.rpt"
     try:
         subprocess.run(
             [
@@ -1293,11 +1351,12 @@ def simulate_filter_stress(
         require(result.first_failure is None,
                 f"physical build-envelope failure: {result.first_failure}")
         try:
-            magnitude_error, phase_error = spice_filter_ac_crosscheck()
+            dc_error, magnitude_error, phase_error = spice_filter_ac_crosscheck()
         except VerificationError:
             console.print("[bold red]Independent SPICE cross-check: BLOCKED[/bold red]")
             console.print("[bold red]Overall hardware gate: CLOSED[/bold red]")
             raise
+        console.print(f"ngspice acquisition DC error: {dc_error*1e3:.2f} mV.")
         console.print(f"Python/SPICE AC agreement: {magnitude_error:.4f} dB, "
                       f"{phase_error:.4f}° worst case.")
 
